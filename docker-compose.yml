@@ -44,7 +44,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: rq worker video-processing --url redis://redis:6379/0
+    command: >
+      sh -c "rq worker $$QUEUE_NAME --url $$REDIS_URL"
     environment:
       DATABASE_URL: postgresql+psycopg2://video:video@db:5432/video
       REDIS_URL: redis://redis:6379/0

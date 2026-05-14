@@ -33,6 +33,8 @@ class VideoService:
             original_filename=filename,
             content_type=upload.content_type,
             raw_path=str(raw_path),
+            attempt_count=0,
+            max_attempts=3,
         )
         db.add(job)
         db.commit()
@@ -41,7 +43,7 @@ class VideoService:
         log.info("video_uploaded", video_id=video_id, raw_path=str(raw_path))
 
         try:
-            rq_job_id = self._queue.enqueue_video_processing(video_id)
+            rq_job_id = self._queue.enqueue_video_processing(video_id, max_attempts=job.max_attempts)
         except Exception as exc:
             log.exception("video_enqueue_failed", video_id=video_id)
             job.status = VideoJobStatus.FAILED
@@ -50,6 +52,7 @@ class VideoService:
             db.refresh(job)
             return job
 
+        job.queue_job_id = rq_job_id
         job.status = VideoJobStatus.QUEUED
         db.commit()
         db.refresh(job)

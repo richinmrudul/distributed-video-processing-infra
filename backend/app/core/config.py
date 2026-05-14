@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     queue_name: str = "video-processing"
 
+    rq_job_timeout_seconds: int = 600
+
     storage_root: Path = Path("storage")
 
     log_level: str = "INFO"

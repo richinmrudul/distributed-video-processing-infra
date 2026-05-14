@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.db.models import VideoJobStatus
 from app.db.session import get_db
 from app.schemas.video import VideoStatusResponse, VideoUploadResponse
 from app.services.video_service import VideoService
@@ -25,6 +26,15 @@ async def upload_video(
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="filename is required")
     job = await service.upload_and_process(db, file)
+    if job.status == VideoJobStatus.FAILED and (job.error_message or "").startswith("enqueue_failed"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "queue_unavailable",
+                "message": job.error_message,
+                "video_id": job.id,
+            },
+        )
     return VideoUploadResponse.model_validate(job)
 
 

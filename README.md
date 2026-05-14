@@ -1,13 +1,39 @@
 # Distributed Video Processing Infrastructure
 
-Phase **2A** moves **FFmpeg off the API** and into a **dedicated RQ worker** backed by **Redis**. The API still accepts uploads, writes **raw files** and **PostgreSQL** `VideoJob` rows, then **enqueues** work and returns with status **`QUEUED`**. A separate **worker** process pulls jobs, runs **`ProcessingService`**, and updates the database to **`COMPLETED`** or **`FAILED`**.
+## Phase 2B — Queue-hardened async processing
+
+Phase **2A** split the API from FFmpeg using **Redis + RQ**. Phase **2B** hardens that path for more production-like behavior:
+
+- **RQ `Retry`** with staggered backoff (`10s`, `30s`, `60s`) aligned to **`VideoJob.max_attempts`**
+- **Job execution timeout** (`rq_job_timeout_seconds`, default **600** / 10 minutes) so runaway FFmpeg does not hold workers forever
+- **`VideoJob` queue metadata**: `queue_job_id`, `attempt_count`, `max_attempts` (exposed on upload + status responses)
+- **Worker idempotency**: skip missing jobs, **never reprocess `COMPLETED`**, cap retries when **`FAILED`** and **`attempt_count >= max_attempts`**, clear `error_message` when retrying
+- **Enqueue failure handling**: DB row marked **`FAILED`** with `enqueue_failed:…`; API returns **503** with `video_id` for correlation
+- **`GET /api/v1/queue/health`**: Redis connectivity + basic RQ registry sizes (queued / failed / started / deferred)
+
+Phase **2C** (next) can add durable observability (metrics/tracing), DLQ patterns, horizontal scaling, object storage, and migrations (e.g. Alembic) — intentionally out of scope here.
+
+---
 
 ## Prerequisites
 
-- **Docker Compose** (recommended): runs **PostgreSQL**, **Redis**, **API**, and **worker**.
-- **Local-only**: Python 3.12+, PostgreSQL 16+, **Redis**, **ffmpeg**, and two processes (API + `rq worker`) with correct **`PYTHONPATH`**.
+- **Docker Compose** (recommended): **PostgreSQL**, **Redis**, **API**, **worker**
+- **Local-only**: Python 3.12+, PostgreSQL, **Redis**, **ffmpeg**, and two processes (API + `rq worker`) with **`PYTHONPATH=backend:.`**
 
-## Run with Docker Compose (recommended)
+## Schema changes and local DB
+
+Models use **`create_all`** only (no Alembic yet). After pulling Phase **2B**, if Postgres already has an older `video_jobs` table, **`create_all` will not add new columns**.
+
+For local development, reset the volume:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+---
+
+## Run with Docker Compose
 
 From the repository root:
 
@@ -15,12 +41,30 @@ From the repository root:
 docker compose up --build
 ```
 
-- **API**: `http://localhost:8000`
-- **PostgreSQL**: `localhost:5432` (user `video`, password `video`, database `video`)
-- **Redis**: `localhost:6379`
-- **Uploads and outputs**: `./storage` on the host (mounted into API and worker)
+The **worker** runs:
 
-Processing is **asynchronous**: the upload response returns quickly with **`QUEUED`**; poll **`GET /api/v1/videos/{id}/status`** until **`COMPLETED`** or **`FAILED`**.
+```yaml
+command: >
+  sh -c "rq worker $$QUEUE_NAME --url $$REDIS_URL"
+```
+
+`$$` is escaped so **Compose does not interpolate host variables**; **`$QUEUE_NAME`** and **`$REDIS_URL`** expand **inside the container** from the service `environment`.
+
+Both **api** and **worker** receive:
+
+| Variable | Value (in Compose) |
+|----------|---------------------|
+| `DATABASE_URL` | `postgresql+psycopg2://video:video@db:5432/video` |
+| `REDIS_URL` | `redis://redis:6379/0` |
+| `QUEUE_NAME` | `video-processing` |
+| `STORAGE_ROOT` | `/data/storage` |
+
+Endpoints:
+
+- **API**: `http://localhost:8000`
+- **PostgreSQL**: `localhost:5432` (`video` / `video` / `video`)
+- **Redis**: `localhost:6379`
+- **Storage**: `./storage` on the host
 
 ### Worker logs
 
@@ -28,19 +72,29 @@ Processing is **asynchronous**: the upload response returns quickly with **`QUEU
 docker compose logs -f worker
 ```
 
-You should see structured events such as `worker_job_picked_up`, `worker_processing_started`, and `worker_processing_completed` (or failure logs).
+You should see RQ lines such as **`Listening on video-processing`** plus structured logs (`worker_job_picked_up`, `worker_processing_started`, etc.).
 
-## Run locally (API and worker on the host)
+### Queue health
 
-1. Start dependencies (or equivalents):
+```bash
+curl -sS http://localhost:8000/api/v1/queue/health | jq .
+```
+
+Expect **`redis_connected": true`**, **`queue_name": "video-processing"**, and registry counts (values depend on workload).
+
+---
+
+## Run locally (API + worker on the host)
+
+1. Start dependencies:
 
    ```bash
    docker compose up db redis
    ```
 
-2. Install **ffmpeg** (e.g. `brew install ffmpeg` on macOS).
+2. Install **ffmpeg** (e.g. `brew install ffmpeg`).
 
-3. From the **repository root** (so `storage/` and the `workers` package resolve correctly):
+3. From the **repository root**:
 
    ```bash
    python3 -m venv .venv
@@ -59,70 +113,124 @@ You should see structured events such as `worker_job_picked_up`, `worker_process
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-5. **Terminal B — worker**
+5. **Terminal B — worker** (same env; variables expand in your shell)
 
    ```bash
    rq worker "$QUEUE_NAME" --url "$REDIS_URL"
    ```
+
+---
 
 ## Environment variables
 
 | Variable | Default (in code) | Description |
 |----------|-------------------|-------------|
 | `DATABASE_URL` | `postgresql+psycopg2://video:video@localhost:5432/video` | SQLAlchemy URL |
-| `REDIS_URL` | `redis://redis:6379/0` | Redis for RQ (use `redis://localhost:6379/0` on the host) |
-| `QUEUE_NAME` | `video-processing` | RQ queue name (API enqueue and worker **must** match) |
-| `STORAGE_ROOT` | `storage` (relative to process CWD) | Root for `raw/`, `processed/`, `thumbnails/` |
+| `REDIS_URL` | `redis://redis:6379/0` | Redis for RQ |
+| `QUEUE_NAME` | `video-processing` | RQ queue name (API + worker must match) |
+| `STORAGE_ROOT` | `storage` | Root for `raw/`, `processed/`, `thumbnails/` |
+| `RQ_JOB_TIMEOUT_SECONDS` | `600` | RQ job timeout (FFmpeg) in seconds |
 | `LOG_LEVEL` | `INFO` | Logging level |
-| `LOG_JSON` | `false` | Set to `true` for JSON logs (structlog) |
+| `LOG_JSON` | `false` | JSON logs when `true` |
+
+---
 
 ## API quick reference
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Liveness |
-| POST | `/api/v1/videos/upload` | Multipart upload; enqueues processing (**does not** wait for FFmpeg) |
-| GET | `/api/v1/videos/{video_id}/status` | Job status and paths |
+| GET | `/api/v1/queue/health` | Redis + RQ queue/registry snapshot |
+| POST | `/api/v1/videos/upload` | Multipart upload; enqueues RQ job (does not wait for FFmpeg) |
+| GET | `/api/v1/videos/{video_id}/status` | Job status, paths, queue metadata |
 
-OpenAPI UI: `http://localhost:8000/docs`
+OpenAPI: `http://localhost:8000/docs`
 
-## Job lifecycle (Phase 2A)
+---
 
-`UPLOADED` → `QUEUED` → `PROCESSING` → `COMPLETED` or `FAILED`
+## Job lifecycle
 
-If enqueue to Redis fails after the file is stored, the job is marked **`FAILED`** with `error_message` starting with `enqueue_failed:`.
+`UPLOADED` → `QUEUED` → `PROCESSING` → `COMPLETED` **or** `FAILED`
 
-## Test an upload
+- **`queue_job_id`**: RQ job id after successful enqueue (null if enqueue failed before assignment)
+- **`attempt_count`**: incremented at the **start** of each worker execution (including RQ retries)
+- **`max_attempts`**: cap for DB-level “give up” behavior (default **3**); RQ **`Retry(max=max_attempts-1)`** with intervals **`[10, 30, 60]`** seconds
+
+---
+
+## Verification commands
 
 ```bash
-curl -sS -X POST "http://localhost:8000/api/v1/videos/upload" \
+docker compose down -v
+docker compose up --build
+```
+
+```bash
+curl -sS http://localhost:8000/health
+curl -sS http://localhost:8000/api/v1/queue/health | jq .
+```
+
+Upload:
+
+```bash
+curl -sS -X POST http://localhost:8000/api/v1/videos/upload \
   -F "file=@/path/to/sample.mp4" | jq .
 ```
 
-Poll until `status` is terminal:
+Poll (replace `VIDEO_ID`):
 
 ```bash
 curl -sS "http://localhost:8000/api/v1/videos/VIDEO_ID/status" | jq .
 ```
 
-## Verification checklist (Phase 2A)
+### Expected (happy path)
 
-Expected behavior:
+1. Compose brings up **db**, **redis**, **api**, **worker**.
+2. **`GET /health`** → `{"status":"ok"}`.
+3. Upload returns quickly with **`QUEUED`**, **`queue_job_id` not null**, **`attempt_count` still 0** in the upload response (worker increments on pickup).
+4. **`GET .../status`**: after the worker runs, **`attempt_count` is at least 1**, status **`PROCESSING`** then **`COMPLETED`**, paths populated.
+5. **`GET /api/v1/queue/health`**: **`redis_connected": true`**.
+6. **`storage/processed`** has the **mp4**; **`storage/thumbnails`** has the **jpg**.
 
-1. `docker compose up --build` starts **db**, **redis**, **api**, and **worker**.
-2. `GET /health` returns `{"status":"ok"}`.
-3. Upload returns quickly with **`QUEUED`** (and `processed_path` / `thumbnail_path` still null).
-4. **Worker** logs show processing started (and completed for a valid file).
-5. `GET .../status` eventually returns **`COMPLETED`** (or **`FAILED`** if FFmpeg/input fails).
-6. `storage/processed` contains the output **mp4**.
-7. `storage/thumbnails` contains the **jpg** thumbnail.
+If **Redis** is down at upload time, the API responds **503** with a JSON **`detail`** including **`video_id`**; the row is **`FAILED`** with **`enqueue_failed:`** in **`error_message`**.
 
-## Architecture
+---
 
-- **API**: `VideoService` uses **`StorageService`** and **`QueueService`** (RQ by import path `workers.video_worker.process_video_job`).
-- **Worker**: `workers/video_worker.py` opens its own DB session and calls **`ProcessingService`** (same FFmpeg logic as Phase 1).
-- **Docker**: one **backend** image (`backend/Dockerfile`); build context is the **repo root** so the image includes both `app/` and `workers/`. **`PYTHONPATH=/app`**.
+## Troubleshooting
 
-## Phase 2B (next bottlenecks)
+### `TypeError: process_video_job() got an unexpected keyword argument 'timeout'`
 
-Phase 2A still uses **one default RQ queue**, **no automatic retries**, **no DLQ**, and **no autoscaling** of workers. Redis and worker processes are **single-instance** in Compose; **horizontal scaling**, **observability**, **backpressure**, and **failure isolation** remain for later phases.
+If worker logs show **`unexpected keyword argument 'timeout'`**, enqueue options were passed as **worker function keyword arguments** instead of **RQ job options**.
+
+In RQ 2.x, `Queue.enqueue()` / `parse_args` strips **`job_timeout=...`** for the job’s execution limit. A bare **`timeout=...`** is **not** treated as an RQ option and is forwarded to **`process_video_job`**, which only accepts **`job_id`**.
+
+**Fix:** use **`job_timeout=...`** in **`enqueue_video_processing`** (see `backend/app/services/queue_service.py`). Correct worker log lines look like **`workers.video_worker.process_video_job('VIDEO_ID')`**, not **`...('VIDEO_ID', timeout=600)`**.
+
+---
+
+## Architecture (summary)
+
+- **API**: `VideoService` → **`StorageService`** + **`QueueService`** (RQ `Retry`, **`job_timeout`**).
+- **Worker**: `workers/video_worker.py` → own DB session → **`ProcessingService`**.
+- **Docker**: single image (`backend/Dockerfile`), build context **repo root**, **`PYTHONPATH=/app`**, **`workers/`** + **`app/`** on the image.
+
+---
+
+## Reliability (what Phase 2B improves)
+
+| Problem | Mitigation |
+|---------|------------|
+| Transient Redis / broker blips | RQ **retry** with backoff |
+| Stuck / hung FFmpeg | **Worker job timeout** |
+| No correlation to queue | Persist **`queue_job_id`** |
+| Opaque retry / give-up | **`attempt_count` / `max_attempts`** in API + DB |
+| Blind operations | **`/api/v1/queue/health`** for quick inspection |
+
+---
+
+## Phase 2C (suggested next)
+
+- **Alembic** (or managed migrations) instead of **`create_all`**
+- **Metrics and tracing** (Prometheus/OpenTelemetry) without running full k8s
+- **Object storage** for raw/processed artifacts
+- **DLQ / explicit retry policies**, **worker autoscaling**, **multi-queue** priorities

@@ -12,6 +12,9 @@ class VideoUploadResponse(BaseModel):
     status: VideoJobStatus
     original_filename: str
     raw_path: str
+    queue_job_id: str | None = None
+    attempt_count: int = 0
+    max_attempts: int = 3
 
 
 class VideoStatusResponse(BaseModel):
@@ -21,6 +24,9 @@ class VideoStatusResponse(BaseModel):
     status: VideoJobStatus
     original_filename: str
     raw_path: str
+    queue_job_id: str | None = None
+    attempt_count: int = 0
+    max_attempts: int = 3
     processed_path: str | None = None
     thumbnail_path: str | None = None
     error_message: str | None = None

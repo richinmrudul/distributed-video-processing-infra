@@ -24,14 +24,25 @@ def process_video_job(job_id: str) -> None:
         if job.status == VideoJobStatus.COMPLETED:
             log.info("worker_job_already_completed_skip", video_id=job_id)
             return
-        if job.status == VideoJobStatus.FAILED:
-            log.info("worker_job_failed_state_skip", video_id=job_id)
+        if job.status == VideoJobStatus.FAILED and job.attempt_count >= job.max_attempts:
+            log.info(
+                "worker_max_attempts_exhausted_skip",
+                video_id=job_id,
+                attempt_count=job.attempt_count,
+                max_attempts=job.max_attempts,
+            )
             return
 
+        if job.status == VideoJobStatus.FAILED:
+            job.error_message = None
+        elif job.status == VideoJobStatus.PROCESSING:
+            job.error_message = None
+
+        job.attempt_count += 1
         job.status = VideoJobStatus.PROCESSING
         db.commit()
         db.refresh(job)
-        log.info("worker_processing_started", video_id=job_id)
+        log.info("worker_processing_started", video_id=job_id, attempt_count=job.attempt_count)
 
         processing = ProcessingService()
         raw_path = Path(job.raw_path)
@@ -56,6 +67,7 @@ def process_video_job(job_id: str) -> None:
             job.error_message = str(exc)
             db.commit()
         log.warning("worker_processing_failed", video_id=job_id, error=str(exc))
+        raise
     except Exception as exc:
         db.rollback()
         job = db.get(VideoJob, job_id)
