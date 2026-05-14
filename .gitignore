@@ -1,25 +1,10 @@
-# OS
-.DS_Store
-
-# Python
 __pycache__/
-*.pyc
+*.py[cod]
+.Python
 .venv/
+venv/
 .env
-
-# Node
-node_modules/
-
-# Video/storage artifacts
-storage/raw/*
-storage/processed/*
-storage/thumbnails/*
-!storage/raw/.gitkeep
-!storage/processed/.gitkeep
-!storage/thumbnails/.gitkeep
-
-# Logs
-*.log
-
-# Docker
-*.pid
+.DS_Store
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
