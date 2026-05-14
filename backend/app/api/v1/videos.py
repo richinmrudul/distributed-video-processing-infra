@@ -18,7 +18,7 @@ def get_video_service() -> VideoService:
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_video(
-    file: UploadFile = File(..., description="Video file to store and process."),
+    file: UploadFile = File(..., description="Video file to store; processing runs asynchronously via RQ."),
     db: Session = Depends(get_db),
     service: VideoService = Depends(get_video_service),
 ) -> VideoUploadResponse:

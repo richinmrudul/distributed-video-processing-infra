@@ -7,11 +7,13 @@ RUN apt-get update \
 WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+COPY backend/app ./app
+COPY workers ./workers
 
 EXPOSE 8000
 

@@ -11,6 +11,7 @@ class Base(DeclarativeBase):
 
 class VideoJobStatus(str, enum.Enum):
     UPLOADED = "UPLOADED"
+    QUEUED = "QUEUED"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"

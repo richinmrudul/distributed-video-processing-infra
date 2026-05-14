@@ -11,6 +11,9 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg2://video:video@localhost:5432/video"
 
+    redis_url: str = "redis://redis:6379/0"
+    queue_name: str = "video-processing"
+
     storage_root: Path = Path("storage")
 
     log_level: str = "INFO"

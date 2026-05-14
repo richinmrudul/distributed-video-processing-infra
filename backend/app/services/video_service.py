@@ -1,11 +1,9 @@
-from pathlib import Path
-
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.db.models import VideoJob, VideoJobStatus
-from app.services.processing_service import ProcessingError, ProcessingService
+from app.services.queue_service import QueueService
 from app.services.storage_service import StorageService
 from app.utils.ids import new_video_id
 
@@ -13,15 +11,15 @@ log = get_logger(__name__)
 
 
 class VideoService:
-    """Coordinates persistence, storage, and processing. Replace synchronous process() with enqueue in Phase 2."""
+    """Coordinates persistence, storage, and queueing. FFmpeg runs in RQ workers (see workers.video_worker)."""
 
     def __init__(
         self,
         storage: StorageService | None = None,
-        processing: ProcessingService | None = None,
+        queue: QueueService | None = None,
     ) -> None:
         self._storage = storage or StorageService()
-        self._processing = processing or ProcessingService()
+        self._queue = queue or QueueService()
 
     async def upload_and_process(self, db: Session, upload: UploadFile) -> VideoJob:
         filename = upload.filename or "video"
@@ -42,33 +40,21 @@ class VideoService:
 
         log.info("video_uploaded", video_id=video_id, raw_path=str(raw_path))
 
-        self._run_processing(db, job, raw_path)
-        return job
-
-    def _run_processing(self, db: Session, job: VideoJob, raw_path: Path) -> None:
-        job.status = VideoJobStatus.PROCESSING
-        db.commit()
-        db.refresh(job)
-        log.info("video_processing_started", video_id=job.id)
-
         try:
-            processed, thumbnail = self._processing.process(job.id, raw_path)
-            job.status = VideoJobStatus.COMPLETED
-            job.processed_path = str(processed)
-            job.thumbnail_path = str(thumbnail)
-            job.error_message = None
-            log.info(
-                "video_processing_completed",
-                video_id=job.id,
-                processed_path=str(processed),
-                thumbnail_path=str(thumbnail),
-            )
-        except ProcessingError as exc:
+            rq_job_id = self._queue.enqueue_video_processing(video_id)
+        except Exception as exc:
+            log.exception("video_enqueue_failed", video_id=video_id)
             job.status = VideoJobStatus.FAILED
-            job.error_message = str(exc)
-            log.warning("video_processing_failed", video_id=job.id, error=str(exc))
+            job.error_message = f"enqueue_failed: {exc}"
+            db.commit()
+            db.refresh(job)
+            return job
+
+        job.status = VideoJobStatus.QUEUED
         db.commit()
         db.refresh(job)
+        log.info("video_queued", video_id=video_id, rq_job_id=rq_job_id)
+        return job
 
     def get_job(self, db: Session, video_id: str) -> VideoJob | None:
         return db.get(VideoJob, video_id)
