@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Node
+node_modules/
+
+# Video/storage artifacts
+storage/raw/*
+storage/processed/*
+storage/thumbnails/*
+!storage/raw/.gitkeep
+!storage/processed/.gitkeep
+!storage/thumbnails/.gitkeep
+
+# Logs
+*.log
+
+# Docker
+*.pid
