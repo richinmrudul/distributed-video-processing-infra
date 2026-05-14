@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     storage_root: Path = Path("storage")
 
-    # S3-compatible object storage (MinIO in Docker; foundation only while STORAGE_BACKEND=local).
+    # S3-compatible object storage (MinIO). Used when STORAGE_BACKEND=object.
     object_storage_endpoint: str = "http://minio:9000"
     object_storage_access_key: str = "minioadmin"
     object_storage_secret_key: str = "minioadmin"
@@ -30,10 +30,19 @@ class Settings(BaseSettings):
     processed_video_bucket: str = "processed-videos"
     thumbnail_bucket: str = "thumbnails"
 
+    # local | object (Compose may set object; bare-metal default local).
     storage_backend: str = "local"
 
     log_level: str = "INFO"
     log_json: bool = False
+
+    @field_validator("storage_backend", mode="before")
+    @classmethod
+    def coerce_storage_backend(cls, v: object) -> str:
+        s = str(v or "local").strip().lower()
+        if s not in ("local", "object"):
+            return "local"
+        return s
 
     @field_validator("object_storage_secure", mode="before")
     @classmethod

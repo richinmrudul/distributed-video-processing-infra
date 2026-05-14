@@ -105,3 +105,10 @@ class ObjectStorageService:
             if code in ("404", "NoSuchKey", "NotFound"):
                 return False
             raise ObjectStorageError(f"head_object failed: {exc}") from exc
+
+    def head_object_content_length(self, bucket_name: str, object_key: str) -> int:
+        try:
+            r = self._client.head_object(Bucket=bucket_name, Key=object_key)
+            return int(r.get("ContentLength") or 0)
+        except (BotoCoreError, ClientError) as exc:
+            raise ObjectStorageError(f"head_object failed: {exc}") from exc

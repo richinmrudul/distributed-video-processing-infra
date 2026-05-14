@@ -73,7 +73,7 @@ services:
       RAW_VIDEO_BUCKET: raw-videos
       PROCESSED_VIDEO_BUCKET: processed-videos
       THUMBNAIL_BUCKET: thumbnails
-      STORAGE_BACKEND: local
+      STORAGE_BACKEND: object
     volumes:
       - ./storage:/data/storage
     depends_on:
@@ -107,7 +107,7 @@ services:
       RAW_VIDEO_BUCKET: raw-videos
       PROCESSED_VIDEO_BUCKET: processed-videos
       THUMBNAIL_BUCKET: thumbnails
-      STORAGE_BACKEND: local
+      STORAGE_BACKEND: object
     volumes:
       - ./storage:/data/storage
     depends_on:

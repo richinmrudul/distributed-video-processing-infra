@@ -11,7 +11,11 @@ class VideoUploadResponse(BaseModel):
     id: str = Field(..., description="Stable identifier for this upload and job.")
     status: VideoJobStatus
     original_filename: str
-    raw_path: str
+    raw_path: str | None = None
+    storage_backend: str = "local"
+    raw_object_key: str | None = None
+    processed_object_key: str | None = None
+    thumbnail_object_key: str | None = None
     queue_job_id: str | None = None
     attempt_count: int = 0
     max_attempts: int = 3
@@ -23,7 +27,11 @@ class VideoStatusResponse(BaseModel):
     id: str
     status: VideoJobStatus
     original_filename: str
-    raw_path: str
+    raw_path: str | None = None
+    storage_backend: str = "local"
+    raw_object_key: str | None = None
+    processed_object_key: str | None = None
+    thumbnail_object_key: str | None = None
     queue_job_id: str | None = None
     attempt_count: int = 0
     max_attempts: int = 3
