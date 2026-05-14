@@ -30,5 +30,8 @@ class VideoStatusResponse(BaseModel):
     processed_path: str | None = None
     thumbnail_path: str | None = None
     error_message: str | None = None
+    processing_started_at: datetime | None = None
+    processing_completed_at: datetime | None = None
+    processing_duration_seconds: float | None = None
     created_at: datetime
     updated_at: datetime

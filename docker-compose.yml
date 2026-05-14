@@ -40,6 +40,7 @@ services:
       redis:
         condition: service_started
 
+  # RQ worker: one process per container; scale with `docker compose up --scale worker=N`
   worker:
     build:
       context: .
