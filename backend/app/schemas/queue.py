@@ -16,6 +16,10 @@ class QueueHealthResponse(BaseModel):
     queue_name: str
     queued_jobs_count: int = 0
     failed_jobs_count: int = 0
+    failed_job_ids_sample: list[str] = Field(
+        default_factory=list,
+        description="Up to 10 RQ job IDs from the failed registry (not video IDs).",
+    )
     started_jobs_count: int = 0
     deferred_jobs_count: int = 0
     finished_jobs_count: int = 0

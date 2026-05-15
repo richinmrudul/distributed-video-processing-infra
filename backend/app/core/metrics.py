@@ -42,6 +42,12 @@ VIDEO_PROCESSING_FAILURES_TOTAL = Counter(
     ["storage_backend", "error_type"],
 )
 
+MANUAL_RETRIES_TOTAL = Counter(
+    "manual_retries_total",
+    "Manual retries triggered via API",
+    ["storage_backend"],
+)
+
 # --- Queue (updated when /api/v1/queue/health runs) ---
 
 QUEUE_DEPTH = Gauge(

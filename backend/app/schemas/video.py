@@ -38,6 +38,11 @@ class VideoStatusResponse(BaseModel):
     processed_path: str | None = None
     thumbnail_path: str | None = None
     error_message: str | None = None
+    failed_at: datetime | None = None
+    last_error_type: str | None = None
+    retry_exhausted: bool = False
+    manually_retried_at: datetime | None = None
+    manual_retry_count: int = 0
     processing_started_at: datetime | None = None
     processing_completed_at: datetime | None = None
     processing_duration_seconds: float | None = None

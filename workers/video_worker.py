@@ -22,6 +22,7 @@ from app.db.models import VideoJob, VideoJobStatus
 from app.db.session import SessionLocal
 from app.services.object_storage_service import ObjectStorageError, ObjectStorageService
 from app.services.processing_service import ProcessingError, ProcessingService
+from app.utils.error_messages import sanitize_error_message
 from app.utils.object_keys import processed_object_key, s3_uri, thumbnail_object_key
 
 configure_logging(log_level=settings.log_level, log_json=settings.log_json)
@@ -46,6 +47,30 @@ def _record_processing_success(job: VideoJob, duration_s: float) -> None:
     backend = _storage_backend_label(job)
     VIDEO_PROCESSING_JOBS_TOTAL.labels(status="completed", storage_backend=backend).inc()
     VIDEO_PROCESSING_DURATION_SECONDS.labels(storage_backend=backend).observe(duration_s)
+
+
+def _clear_failure_metadata(job: VideoJob) -> None:
+    job.error_message = None
+    job.failed_at = None
+    job.last_error_type = None
+    job.retry_exhausted = False
+
+
+def _mark_job_failed(job: VideoJob, exc: BaseException, processing_start: datetime | None) -> None:
+    now = datetime.now(timezone.utc)
+    job.status = VideoJobStatus.FAILED
+    job.error_message = sanitize_error_message(exc)
+    job.last_error_type = type(exc).__name__
+    job.failed_at = now
+    job.retry_exhausted = job.attempt_count >= job.max_attempts
+    if processing_start is not None:
+        job.processing_completed_at = now
+        job.processing_duration_seconds = (now - processing_start).total_seconds()
+
+
+def _should_rq_retry(job: VideoJob) -> bool:
+    """True when another worker attempt should run (DB attempt budget not exhausted)."""
+    return job.attempt_count < job.max_attempts
 
 
 def _record_processing_failure(
@@ -81,7 +106,9 @@ def process_video_job(job_id: str) -> None:
                 worker_id=worker_id,
             )
             return
-        if job.status == VideoJobStatus.FAILED and job.attempt_count >= job.max_attempts:
+        if job.status == VideoJobStatus.FAILED and (
+            job.retry_exhausted or job.attempt_count >= job.max_attempts
+        ):
             log.info(
                 "worker_job_finished",
                 outcome="skipped",
@@ -157,7 +184,7 @@ def process_video_job(job_id: str) -> None:
         except (OSError, ObjectStorageError):
             pass
 
-        job.error_message = None
+        _clear_failure_metadata(job)
         job.status = VideoJobStatus.COMPLETED
         job.processing_completed_at = completed_at
         job.processing_duration_seconds = duration_s
@@ -177,35 +204,31 @@ def process_video_job(job_id: str) -> None:
         db.rollback()
         job = db.get(VideoJob, job_id)
         if job is not None:
-            job.status = VideoJobStatus.FAILED
-            job.error_message = str(exc)
-            if processing_start is not None:
-                completed_at = datetime.now(timezone.utc)
-                job.processing_completed_at = completed_at
-                job.processing_duration_seconds = (completed_at - processing_start).total_seconds()
+            _mark_job_failed(job, exc, processing_start)
             db.commit()
             duration_s = job.processing_duration_seconds
-            _record_processing_failure(job, error_type="processing_error", duration_s=duration_s)
+            _record_processing_failure(job, error_type=type(exc).__name__, duration_s=duration_s)
+            outcome = "failure" if _should_rq_retry(job) else "permanent_failure"
             log.warning(
                 "worker_job_finished",
-                outcome="failure",
+                outcome=outcome,
                 video_id=job_id,
                 worker_id=worker_id,
                 attempt_count=job.attempt_count,
+                max_attempts=job.max_attempts,
+                retry_exhausted=job.retry_exhausted,
                 processing_duration_seconds=duration_s,
                 error=str(exc),
             )
+            if _should_rq_retry(job):
+                raise
+            return
         raise
     except Exception as exc:
         db.rollback()
         job = db.get(VideoJob, job_id)
         if job is not None:
-            job.status = VideoJobStatus.FAILED
-            job.error_message = str(exc)[:8000]
-            if processing_start is not None:
-                completed_at = datetime.now(timezone.utc)
-                job.processing_completed_at = completed_at
-                job.processing_duration_seconds = (completed_at - processing_start).total_seconds()
+            _mark_job_failed(job, exc, processing_start)
             db.commit()
             duration_s = job.processing_duration_seconds
             _record_processing_failure(
@@ -213,14 +236,22 @@ def process_video_job(job_id: str) -> None:
                 error_type=type(exc).__name__,
                 duration_s=duration_s,
             )
-            log.exception(
+            outcome = "failure" if _should_rq_retry(job) else "permanent_failure"
+            log_fn = log.exception if _should_rq_retry(job) else log.warning
+            log_fn(
                 "worker_job_finished",
-                outcome="failure",
+                outcome=outcome,
                 video_id=job_id,
                 worker_id=worker_id,
                 attempt_count=job.attempt_count,
+                max_attempts=job.max_attempts,
+                retry_exhausted=job.retry_exhausted,
                 processing_duration_seconds=duration_s,
+                error=str(exc),
             )
+            if _should_rq_retry(job):
+                raise
+            return
         raise
     finally:
         db.close()

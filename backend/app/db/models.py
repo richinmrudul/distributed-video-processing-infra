@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Float, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, Float, Integer, String, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -38,6 +38,11 @@ class VideoJob(Base):
     processed_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     thumbnail_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    retry_exhausted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    manually_retried_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    manual_retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     processing_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     processing_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     processing_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)

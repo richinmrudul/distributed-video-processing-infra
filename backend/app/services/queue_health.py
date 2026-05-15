@@ -67,11 +67,13 @@ def collect_queue_health() -> QueueHealthResponse:
         queued = len(queue)
         latency = _estimate_queue_latency_seconds(queue)
         active = len(started_registry)
+        failed_sample = list(failed_registry.get_job_ids(0, 10))
         health = QueueHealthResponse(
             redis_connected=True,
             queue_name=queue_name,
             queued_jobs_count=queued,
             failed_jobs_count=len(failed_registry),
+            failed_job_ids_sample=failed_sample,
             started_jobs_count=active,
             deferred_jobs_count=len(deferred_registry),
             finished_jobs_count=len(finished_registry),
