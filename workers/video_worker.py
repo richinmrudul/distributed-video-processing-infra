@@ -1,8 +1,9 @@
 """RQ worker entrypoint: FFmpeg runs here, not in the API process.
 
 Worker metrics use the default prometheus_client registry in each worker process.
-They are incremented locally but are NOT exposed on HTTP unless a scrape endpoint is added later.
-Prometheus in docker-compose currently scrapes only the API /metrics endpoint.
+They are incremented locally but are NOT exposed on HTTP unless a worker /metrics endpoint is added.
+Prometheus scrapes only the API /metrics endpoint; worker failure counters (video_jobs_failed_total,
+video_retry_exhausted_total) require worker metrics exposure in a future phase.
 """
 
 import os
@@ -14,9 +15,11 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.core.metrics import (
+    VIDEO_JOBS_FAILED_TOTAL,
     VIDEO_PROCESSING_DURATION_SECONDS,
     VIDEO_PROCESSING_FAILURES_TOTAL,
     VIDEO_PROCESSING_JOBS_TOTAL,
+    VIDEO_RETRY_EXHAUSTED_TOTAL,
 )
 from app.db.models import VideoJob, VideoJobStatus
 from app.db.session import SessionLocal
@@ -84,6 +87,19 @@ def _record_processing_failure(
     VIDEO_PROCESSING_FAILURES_TOTAL.labels(storage_backend=backend, error_type=error_type).inc()
     if duration_s is not None:
         VIDEO_PROCESSING_DURATION_SECONDS.labels(storage_backend=backend).observe(duration_s)
+
+
+def _record_job_lifecycle_failure(job: VideoJob, error_type: str) -> None:
+    """Job lifecycle counters (worker registry; not scraped until worker exposes /metrics)."""
+    backend = _storage_backend_label(job)
+    exhausted_label = "true" if job.retry_exhausted else "false"
+    VIDEO_JOBS_FAILED_TOTAL.labels(
+        storage_backend=backend,
+        error_type=error_type,
+        retry_exhausted=exhausted_label,
+    ).inc()
+    if job.retry_exhausted:
+        VIDEO_RETRY_EXHAUSTED_TOTAL.labels(storage_backend=backend, error_type=error_type).inc()
 
 
 def process_video_job(job_id: str) -> None:
@@ -207,7 +223,9 @@ def process_video_job(job_id: str) -> None:
             _mark_job_failed(job, exc, processing_start)
             db.commit()
             duration_s = job.processing_duration_seconds
-            _record_processing_failure(job, error_type=type(exc).__name__, duration_s=duration_s)
+            error_type = type(exc).__name__
+            _record_processing_failure(job, error_type=error_type, duration_s=duration_s)
+            _record_job_lifecycle_failure(job, error_type)
             outcome = "failure" if _should_rq_retry(job) else "permanent_failure"
             log.warning(
                 "worker_job_finished",
@@ -231,11 +249,9 @@ def process_video_job(job_id: str) -> None:
             _mark_job_failed(job, exc, processing_start)
             db.commit()
             duration_s = job.processing_duration_seconds
-            _record_processing_failure(
-                job,
-                error_type=type(exc).__name__,
-                duration_s=duration_s,
-            )
+            error_type = type(exc).__name__
+            _record_processing_failure(job, error_type=error_type, duration_s=duration_s)
+            _record_job_lifecycle_failure(job, error_type)
             outcome = "failure" if _should_rq_retry(job) else "permanent_failure"
             log_fn = log.exception if _should_rq_retry(job) else log.warning
             log_fn(

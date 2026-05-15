@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
-from app.core.metrics import MANUAL_RETRIES_TOTAL
+from app.core.metrics import VIDEO_MANUAL_RETRIES_TOTAL, refresh_failed_jobs_gauge
 from app.db.models import VideoJob, VideoJobStatus
 from app.services.queue_service import QueueService
 
@@ -30,6 +30,7 @@ class JobService:
         )
         if retry_exhausted is not None:
             stmt = stmt.where(VideoJob.retry_exhausted == retry_exhausted)
+        refresh_failed_jobs_gauge(db)
         return list(db.execute(stmt).scalars().all())
 
     def retry_failed_job(self, db: Session, video_id: str) -> VideoJob:
@@ -72,7 +73,7 @@ class JobService:
         db.refresh(job)
 
         backend = job.storage_backend or "local"
-        MANUAL_RETRIES_TOTAL.labels(storage_backend=backend).inc()
+        VIDEO_MANUAL_RETRIES_TOTAL.labels(storage_backend=backend).inc()
         log.info(
             "manual_retry_enqueued",
             video_id=vid,

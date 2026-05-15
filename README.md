@@ -23,3 +23,5 @@ Manually retry a failed job (reuses existing raw storage; does not re-upload):
 curl -X POST http://localhost:8000/api/v1/jobs/{id}/retry
 ```
 
+Failure metrics (`failed_jobs_current`, `video_manual_retries_total`) refresh on the API scrape after calling `GET /api/v1/jobs/failed`. Grafana **Distributed Video Processing Overview** includes failure/retry panels.
+

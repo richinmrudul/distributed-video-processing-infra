@@ -36,17 +36,40 @@ VIDEO_PROCESSING_DURATION_SECONDS = Histogram(
     ["storage_backend"],
 )
 
+# Processing-layer failure count (each FFmpeg/worker exception).
 VIDEO_PROCESSING_FAILURES_TOTAL = Counter(
     "video_processing_failures_total",
-    "Video processing failures",
+    "Video processing failures at the processing layer",
     ["storage_backend", "error_type"],
 )
 
-MANUAL_RETRIES_TOTAL = Counter(
-    "manual_retries_total",
+# Job lifecycle failure count (includes intermediate attempts before exhaustion).
+VIDEO_JOBS_FAILED_TOTAL = Counter(
+    "video_jobs_failed_total",
+    "Video job failure events in workers",
+    ["storage_backend", "error_type", "retry_exhausted"],
+)
+
+VIDEO_MANUAL_RETRIES_TOTAL = Counter(
+    "video_manual_retries_total",
     "Manual retries triggered via API",
     ["storage_backend"],
 )
+
+VIDEO_RETRY_EXHAUSTED_TOTAL = Counter(
+    "video_retry_exhausted_total",
+    "Video jobs that exhausted automatic retries",
+    ["storage_backend", "error_type"],
+)
+
+# Refreshed when GET /api/v1/jobs/failed runs (API scrape only).
+FAILED_JOBS_CURRENT = Gauge(
+    "failed_jobs_current",
+    "Current failed video jobs in Postgres",
+    ["storage_backend", "retry_exhausted"],
+)
+
+_FAILED_JOBS_GAUGE_BACKENDS = ("local", "object", "unknown")
 
 # --- Queue (updated when /api/v1/queue/health runs) ---
 
@@ -112,6 +135,36 @@ def update_queue_gauges(
     QUEUE_STARTED_JOBS.labels(queue_name=queue_name).set(started)
     QUEUE_FINISHED_JOBS.labels(queue_name=queue_name).set(finished)
     QUEUE_FAILED_JOBS.labels(queue_name=queue_name).set(failed)
+
+
+def refresh_failed_jobs_gauge(db) -> None:
+    """Set failed_jobs_current from Postgres (call from API on /jobs/failed)."""
+    from sqlalchemy import func, select
+
+    from app.db.models import VideoJob, VideoJobStatus
+
+    for backend in _FAILED_JOBS_GAUGE_BACKENDS:
+        for exhausted in ("true", "false"):
+            FAILED_JOBS_CURRENT.labels(storage_backend=backend, retry_exhausted=exhausted).set(0)
+
+    rows = db.execute(
+        select(
+            VideoJob.storage_backend,
+            VideoJob.retry_exhausted,
+            func.count(),
+        )
+        .where(VideoJob.status == VideoJobStatus.FAILED)
+        .group_by(VideoJob.storage_backend, VideoJob.retry_exhausted)
+    ).all()
+
+    for storage_backend, retry_exhausted, count in rows:
+        backend = storage_backend or "unknown"
+        if backend not in _FAILED_JOBS_GAUGE_BACKENDS:
+            backend = "unknown"
+        FAILED_JOBS_CURRENT.labels(
+            storage_backend=backend,
+            retry_exhausted="true" if retry_exhausted else "false",
+        ).set(int(count))
 
 
 def clear_queue_gauges(queue_name: str) -> None:
