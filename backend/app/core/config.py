@@ -21,6 +21,7 @@ class Settings(BaseSettings):
 
     # S3-compatible object storage (MinIO). Used when STORAGE_BACKEND=object.
     object_storage_endpoint: str = "http://minio:9000"
+    object_storage_public_endpoint: str = "http://localhost:9000"
     object_storage_access_key: str = "minioadmin"
     object_storage_secret_key: str = "minioadmin"
     object_storage_region: str = "us-east-1"

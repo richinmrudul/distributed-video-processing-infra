@@ -66,6 +66,7 @@ services:
       STORAGE_ROOT: /data/storage
       LOG_LEVEL: INFO
       OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_PUBLIC_ENDPOINT: http://localhost:9000
       OBJECT_STORAGE_ACCESS_KEY: minioadmin
       OBJECT_STORAGE_SECRET_KEY: minioadmin
       OBJECT_STORAGE_REGION: us-east-1

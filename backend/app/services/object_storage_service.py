@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import boto3
 from botocore.client import BaseClient
@@ -19,6 +20,43 @@ class ObjectStorageError(Exception):
     """Raised when an object storage operation fails."""
 
 
+def _normalize_endpoint(url: str) -> str:
+    return url.strip().rstrip("/")
+
+
+def _rewrite_presigned_url_for_public(url: str) -> str:
+    """Swap internal MinIO host for the browser-facing endpoint; preserve path and query."""
+    internal = _normalize_endpoint(settings.object_storage_endpoint)
+    public = _normalize_endpoint(settings.object_storage_public_endpoint)
+    if not public or public == internal:
+        return url
+    if url.startswith(internal):
+        return public + url[len(internal) :]
+    try:
+        internal_parts = urlsplit(internal)
+        public_parts = urlsplit(public)
+        parts = urlsplit(url)
+        if parts.netloc == internal_parts.netloc:
+            return urlunsplit(
+                (
+                    public_parts.scheme or parts.scheme,
+                    public_parts.netloc,
+                    parts.path,
+                    parts.query,
+                    parts.fragment,
+                )
+            )
+    except Exception as exc:
+        log.warning("presigned_url_public_rewrite_failed", error=str(exc), url=url)
+        return url
+    log.warning(
+        "presigned_url_public_rewrite_no_match",
+        internal_endpoint=internal,
+        url=url,
+    )
+    return url
+
+
 class ObjectStorageService:
     def __init__(self) -> None:
         self._client: BaseClient = boto3.client(
@@ -30,6 +68,26 @@ class ObjectStorageService:
             use_ssl=settings.object_storage_secure,
             config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
         )
+        self._presign_client: BaseClient | None = None
+
+    def _client_for_presign(self) -> BaseClient:
+        """Presign against the public endpoint when it differs (valid SigV4 Host for browsers)."""
+        internal = _normalize_endpoint(settings.object_storage_endpoint)
+        public = _normalize_endpoint(settings.object_storage_public_endpoint)
+        if not public or public == internal:
+            return self._client
+        if self._presign_client is None:
+            public_secure = public.lower().startswith("https://")
+            self._presign_client = boto3.client(
+                "s3",
+                endpoint_url=public,
+                aws_access_key_id=settings.object_storage_access_key,
+                aws_secret_access_key=settings.object_storage_secret_key,
+                region_name=settings.object_storage_region,
+                use_ssl=public_secure or settings.object_storage_secure,
+                config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+            )
+        return self._presign_client
 
     def check_connection(self) -> bool:
         try:
@@ -119,17 +177,23 @@ class ObjectStorageService:
         object_key: str,
         expires_in_seconds: int = 3600,
     ) -> str:
+        internal = _normalize_endpoint(settings.object_storage_endpoint)
+        public = _normalize_endpoint(settings.object_storage_public_endpoint)
         try:
-            url = self._client.generate_presigned_url(
+            presign_client = self._client_for_presign()
+            url = presign_client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": bucket_name, "Key": object_key},
                 ExpiresIn=expires_in_seconds,
             )
+            if presign_client is self._client and public and public != internal:
+                url = _rewrite_presigned_url_for_public(url)
             log.debug(
                 "object_storage_presigned_url",
                 bucket=bucket_name,
                 key=object_key,
                 expires_in_seconds=expires_in_seconds,
+                public_endpoint=public or internal,
             )
             return url
         except (BotoCoreError, ClientError) as exc:

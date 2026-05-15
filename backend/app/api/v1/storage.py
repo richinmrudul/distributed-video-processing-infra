@@ -37,6 +37,7 @@ def _response(
         backend_configured=backend_configured,
         storage_backend=str(settings.storage_backend or "local"),
         endpoint=str(settings.object_storage_endpoint or ""),
+        public_endpoint=str(settings.object_storage_public_endpoint or ""),
         secure=secure,
         expected_buckets=_expected_buckets(),
         buckets=buckets,
