@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
-from app.db.session import init_db
 from app.services.processing_service import ProcessingService
 from app.services.storage_service import StorageService
 
@@ -15,7 +14,6 @@ log = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging(log_level=settings.log_level, log_json=settings.log_json)
-    init_db()
     StorageService().ensure_directories()
     ProcessingService().ensure_directories()
     log.info("application_startup", app=settings.app_name)
