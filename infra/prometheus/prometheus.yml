@@ -7,3 +7,12 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["api:8000"]
+
+  # Docker Compose DNS for scaled `worker` service returns multiple A records.
+  - job_name: workers
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names:
+          - worker
+        type: A
+        port: 9100

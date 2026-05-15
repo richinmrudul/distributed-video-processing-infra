@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     queue_name: str = "video-processing"
 
     rq_job_timeout_seconds: int = 600
+    worker_metrics_port: int = 9100
 
     storage_root: Path = Path("storage")
 

@@ -1,4 +1,9 @@
-"""Prometheus metrics for API, queue, storage, and worker instrumentation."""
+"""Prometheus metrics for API, queue, storage, and worker instrumentation.
+
+Worker containers set PROMETHEUS_MULTIPROC_DIR; RQ runs each job in a subprocess, and
+prometheus_client multiprocess mode aggregates metrics in workers/run_worker.py via
+MultiProcessCollector. The API process does not set that env var (default registry).
+"""
 
 from prometheus_client import Counter, Gauge, Histogram
 

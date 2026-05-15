@@ -1,9 +1,8 @@
 """RQ worker entrypoint: FFmpeg runs here, not in the API process.
 
 Worker metrics use the default prometheus_client registry in each worker process.
-They are incremented locally but are NOT exposed on HTTP unless a worker /metrics endpoint is added.
-Prometheus scrapes only the API /metrics endpoint; worker failure counters (video_jobs_failed_total,
-video_retry_exhausted_total) require worker metrics exposure in a future phase.
+workers.run_worker starts prometheus_client HTTP /metrics on WORKER_METRICS_PORT (default 9100).
+Prometheus discovers scaled worker containers via Docker DNS (job workers).
 """
 
 import os

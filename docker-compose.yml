@@ -94,12 +94,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: >
-      sh -c "rq worker $$QUEUE_NAME --url $$REDIS_URL"
+    command: ["python", "-m", "workers.run_worker"]
     environment:
       DATABASE_URL: postgresql+psycopg2://video:video@db:5432/video
       REDIS_URL: redis://redis:6379/0
       QUEUE_NAME: video-processing
+      WORKER_METRICS_PORT: "9100"
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
       STORAGE_ROOT: /data/storage
       LOG_LEVEL: INFO
       OBJECT_STORAGE_ENDPOINT: http://minio:9000
