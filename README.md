@@ -19,3 +19,8 @@
 
 - API metrics: http://localhost:8000/metrics
 - Prometheus UI: http://localhost:9090 (scrapes **api** only; worker metrics are instrumented per process but not exposed yet)
+
+## Grafana
+
+- UI: http://localhost:3000 (login: `admin` / `admin`)
+- Dashboard: **Distributed Video Processing Overview** (Prometheus datasource provisioned automatically)
