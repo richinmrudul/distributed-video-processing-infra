@@ -43,3 +43,15 @@ class VideoStatusResponse(BaseModel):
     processing_duration_seconds: float | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class VideoAssetsResponse(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
+    video_id: str
+    storage_backend: str
+    status: VideoJobStatus
+    expires_in_seconds: int
+    raw_url: str | None = None
+    processed_url: str | None = None
+    thumbnail_url: str | None = None

@@ -112,3 +112,25 @@ class ObjectStorageService:
             return int(r.get("ContentLength") or 0)
         except (BotoCoreError, ClientError) as exc:
             raise ObjectStorageError(f"head_object failed: {exc}") from exc
+
+    def generate_presigned_url(
+        self,
+        bucket_name: str,
+        object_key: str,
+        expires_in_seconds: int = 3600,
+    ) -> str:
+        try:
+            url = self._client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": bucket_name, "Key": object_key},
+                ExpiresIn=expires_in_seconds,
+            )
+            log.debug(
+                "object_storage_presigned_url",
+                bucket=bucket_name,
+                key=object_key,
+                expires_in_seconds=expires_in_seconds,
+            )
+            return url
+        except (BotoCoreError, ClientError) as exc:
+            raise ObjectStorageError(f"generate_presigned_url failed: {exc}") from exc

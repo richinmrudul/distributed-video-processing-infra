@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     # local | object (Compose may set object; bare-metal default local).
     storage_backend: str = "local"
 
+    presigned_url_expires_seconds: int = 3600
+
     log_level: str = "INFO"
     log_json: bool = False
 

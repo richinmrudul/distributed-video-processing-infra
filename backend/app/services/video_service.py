@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import UploadFile
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -131,4 +132,5 @@ class VideoService:
         return job
 
     def get_job(self, db: Session, video_id: str) -> VideoJob | None:
-        return db.get(VideoJob, video_id)
+        vid = video_id.strip()
+        return db.execute(select(VideoJob).where(VideoJob.id == vid)).scalar_one_or_none()
