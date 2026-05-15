@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.metrics import VIDEO_UPLOADS_TOTAL
 from app.db.models import VideoJob, VideoJobStatus
 from app.services.object_storage_service import ObjectStorageService
 from app.services.queue_service import QueueService
@@ -18,6 +19,17 @@ from app.utils.object_keys import raw_object_key, s3_uri
 log = get_logger(__name__)
 
 CHUNK = 1024 * 1024
+
+
+def _record_upload_metric(job: VideoJob) -> None:
+    backend = job.storage_backend or settings.storage_backend or "local"
+    if job.status == VideoJobStatus.QUEUED:
+        upload_status = "queued"
+    elif job.status == VideoJobStatus.FAILED:
+        upload_status = "failed"
+    else:
+        upload_status = str(job.status.value).lower()
+    VIDEO_UPLOADS_TOTAL.labels(storage_backend=backend, status=upload_status).inc()
 
 
 class VideoService:
@@ -36,8 +48,11 @@ class VideoService:
         video_id = new_video_id()
 
         if settings.storage_backend == "object":
-            return await self._upload_object_mode(db, upload, video_id, filename)
-        return await self._upload_local_mode(db, upload, video_id, filename)
+            job = await self._upload_object_mode(db, upload, video_id, filename)
+        else:
+            job = await self._upload_local_mode(db, upload, video_id, filename)
+        _record_upload_metric(job)
+        return job
 
     async def _upload_local_mode(self, db: Session, upload: UploadFile, video_id: str, filename: str) -> VideoJob:
         raw_path = await self._storage.save_raw_upload(video_id, upload)

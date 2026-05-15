@@ -1,4 +1,9 @@
-"""RQ worker entrypoint: FFmpeg runs here, not in the API process."""
+"""RQ worker entrypoint: FFmpeg runs here, not in the API process.
+
+Worker metrics use the default prometheus_client registry in each worker process.
+They are incremented locally but are NOT exposed on HTTP unless a scrape endpoint is added later.
+Prometheus in docker-compose currently scrapes only the API /metrics endpoint.
+"""
 
 import os
 import socket
@@ -8,6 +13,11 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.core.metrics import (
+    VIDEO_PROCESSING_DURATION_SECONDS,
+    VIDEO_PROCESSING_FAILURES_TOTAL,
+    VIDEO_PROCESSING_JOBS_TOTAL,
+)
 from app.db.models import VideoJob, VideoJobStatus
 from app.db.session import SessionLocal
 from app.services.object_storage_service import ObjectStorageError, ObjectStorageService
@@ -24,6 +34,31 @@ def _worker_identifier() -> str:
 
 def _is_local_job(job: VideoJob) -> bool:
     return (job.storage_backend or "local") == "local"
+
+
+def _storage_backend_label(job: VideoJob | None) -> str:
+    if job is None:
+        return "unknown"
+    return job.storage_backend or "local"
+
+
+def _record_processing_success(job: VideoJob, duration_s: float) -> None:
+    backend = _storage_backend_label(job)
+    VIDEO_PROCESSING_JOBS_TOTAL.labels(status="completed", storage_backend=backend).inc()
+    VIDEO_PROCESSING_DURATION_SECONDS.labels(storage_backend=backend).observe(duration_s)
+
+
+def _record_processing_failure(
+    job: VideoJob | None,
+    *,
+    error_type: str,
+    duration_s: float | None,
+) -> None:
+    backend = _storage_backend_label(job)
+    VIDEO_PROCESSING_JOBS_TOTAL.labels(status="failed", storage_backend=backend).inc()
+    VIDEO_PROCESSING_FAILURES_TOTAL.labels(storage_backend=backend, error_type=error_type).inc()
+    if duration_s is not None:
+        VIDEO_PROCESSING_DURATION_SECONDS.labels(storage_backend=backend).observe(duration_s)
 
 
 def process_video_job(job_id: str) -> None:
@@ -127,6 +162,7 @@ def process_video_job(job_id: str) -> None:
         job.processing_completed_at = completed_at
         job.processing_duration_seconds = duration_s
         db.commit()
+        _record_processing_success(job, duration_s)
         log.info(
             "worker_job_finished",
             outcome="success",
@@ -149,6 +185,7 @@ def process_video_job(job_id: str) -> None:
                 job.processing_duration_seconds = (completed_at - processing_start).total_seconds()
             db.commit()
             duration_s = job.processing_duration_seconds
+            _record_processing_failure(job, error_type="processing_error", duration_s=duration_s)
             log.warning(
                 "worker_job_finished",
                 outcome="failure",
@@ -171,6 +208,11 @@ def process_video_job(job_id: str) -> None:
                 job.processing_duration_seconds = (completed_at - processing_start).total_seconds()
             db.commit()
             duration_s = job.processing_duration_seconds
+            _record_processing_failure(
+                job,
+                error_type=type(exc).__name__,
+                duration_s=duration_s,
+            )
             log.exception(
                 "worker_job_finished",
                 outcome="failure",

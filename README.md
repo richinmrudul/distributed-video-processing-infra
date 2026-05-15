@@ -14,3 +14,8 @@
   ```bash
   PYTHONPATH=backend alembic -c backend/alembic.ini upgrade head
   ```
+
+## Prometheus metrics
+
+- API metrics: http://localhost:8000/metrics
+- Prometheus UI: http://localhost:9090 (scrapes **api** only; worker metrics are instrumented per process but not exposed yet)

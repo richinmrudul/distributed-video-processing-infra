@@ -12,6 +12,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.metrics import record_object_storage_operation
 
 log = get_logger(__name__)
 
@@ -105,11 +106,14 @@ class ObjectStorageService:
                 name = b.get("Name")
                 if name:
                     out.append(str(name))
+            record_object_storage_operation("list_buckets", "unknown", success=True)
             return out
         except (BotoCoreError, ClientError) as exc:
+            record_object_storage_operation("list_buckets", "unknown", success=False)
             log.warning("object_storage_list_buckets_failed", error=str(exc))
             raise ObjectStorageError(f"list_buckets failed: {exc}") from exc
         except Exception as exc:
+            record_object_storage_operation("list_buckets", "unknown", success=False)
             log.warning("object_storage_list_buckets_unexpected", error=str(exc))
             raise ObjectStorageError(f"list_buckets failed: {exc}") from exc
 
@@ -141,8 +145,10 @@ class ObjectStorageService:
             raise ObjectStorageError(f"upload source not found: {file_path}")
         try:
             self._client.upload_file(str(path), bucket_name, object_key)
+            record_object_storage_operation("upload_file", bucket_name, success=True)
             log.info("object_storage_uploaded", bucket=bucket_name, key=object_key)
         except (BotoCoreError, ClientError) as exc:
+            record_object_storage_operation("upload_file", bucket_name, success=False)
             raise ObjectStorageError(f"upload_file failed: {exc}") from exc
 
     def download_file(self, bucket_name: str, object_key: str, destination_path: str) -> None:
@@ -150,18 +156,23 @@ class ObjectStorageService:
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
             self._client.download_file(bucket_name, object_key, str(dest))
+            record_object_storage_operation("download_file", bucket_name, success=True)
             log.info("object_storage_downloaded", bucket=bucket_name, key=object_key)
         except (BotoCoreError, ClientError) as exc:
+            record_object_storage_operation("download_file", bucket_name, success=False)
             raise ObjectStorageError(f"download_file failed: {exc}") from exc
 
     def object_exists(self, bucket_name: str, object_key: str) -> bool:
         try:
             self._client.head_object(Bucket=bucket_name, Key=object_key)
+            record_object_storage_operation("object_exists", bucket_name, success=True)
             return True
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "")
             if code in ("404", "NoSuchKey", "NotFound"):
+                record_object_storage_operation("object_exists", bucket_name, success=True)
                 return False
+            record_object_storage_operation("object_exists", bucket_name, success=False)
             raise ObjectStorageError(f"head_object failed: {exc}") from exc
 
     def head_object_content_length(self, bucket_name: str, object_key: str) -> int:
@@ -188,6 +199,7 @@ class ObjectStorageService:
             )
             if presign_client is self._client and public and public != internal:
                 url = _rewrite_presigned_url_for_public(url)
+            record_object_storage_operation("generate_presigned_url", bucket_name, success=True)
             log.debug(
                 "object_storage_presigned_url",
                 bucket=bucket_name,
@@ -197,4 +209,5 @@ class ObjectStorageService:
             )
             return url
         except (BotoCoreError, ClientError) as exc:
+            record_object_storage_operation("generate_presigned_url", bucket_name, success=False)
             raise ObjectStorageError(f"generate_presigned_url failed: {exc}") from exc

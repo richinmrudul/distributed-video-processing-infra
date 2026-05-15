@@ -9,6 +9,7 @@ from rq.registry import DeferredJobRegistry, FailedJobRegistry, FinishedJobRegis
 from rq.worker_registration import get_keys
 
 from app.core.config import settings
+from app.core.metrics import clear_queue_gauges, update_queue_gauges
 from app.schemas.queue import QueueHealthResponse, QueuePressureLevel
 
 
@@ -44,11 +45,13 @@ def collect_queue_health() -> QueueHealthResponse:
         conn.ping()
     except Exception as exc:
         conn.close()
-        return QueueHealthResponse(
+        health = QueueHealthResponse(
             redis_connected=False,
             queue_name=queue_name,
             redis_error=str(exc),
         )
+        clear_queue_gauges(queue_name)
+        return health
 
     try:
         queue = Queue(queue_name, connection=conn)
@@ -64,7 +67,7 @@ def collect_queue_health() -> QueueHealthResponse:
         queued = len(queue)
         latency = _estimate_queue_latency_seconds(queue)
         active = len(started_registry)
-        return QueueHealthResponse(
+        health = QueueHealthResponse(
             redis_connected=True,
             queue_name=queue_name,
             queued_jobs_count=queued,
@@ -78,11 +81,22 @@ def collect_queue_health() -> QueueHealthResponse:
             queue_latency_estimate_seconds=latency,
             queue_pressure_level=_queue_pressure(queued),
         )
+        update_queue_gauges(
+            queue_name=queue_name,
+            queued=queued,
+            workers=len(worker_names),
+            started=active,
+            finished=len(finished_registry),
+            failed=len(failed_registry),
+        )
+        return health
     except Exception as exc:
-        return QueueHealthResponse(
+        health = QueueHealthResponse(
             redis_connected=True,
             queue_name=queue_name,
             redis_error=str(exc),
         )
+        clear_queue_gauges(queue_name)
+        return health
     finally:
         conn.close()

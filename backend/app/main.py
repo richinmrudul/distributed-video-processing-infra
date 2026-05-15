@@ -1,10 +1,13 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.responses import Response
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.core.prometheus_middleware import PrometheusMiddleware
 from app.services.processing_service import ProcessingService
 from app.services.storage_service import StorageService
 
@@ -22,9 +25,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app.add_middleware(PrometheusMiddleware)
 app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics() -> Response:
+    """Prometheus scrape endpoint (root-level, not under /api/v1)."""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
