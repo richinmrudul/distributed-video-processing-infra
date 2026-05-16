@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -7,6 +7,7 @@ from app.core.logging import get_logger
 from app.db.models import VideoJob, VideoJobStatus
 from app.db.session import get_db
 from app.schemas.video import VideoAssetsResponse, VideoStatusResponse, VideoUploadResponse
+from app.services.admission_control import UploadAdmissionController
 from app.services.object_storage_service import ObjectStorageError, ObjectStorageService
 from app.services.video_service import VideoService
 
@@ -16,6 +17,10 @@ log = get_logger(__name__)
 
 def get_video_service() -> VideoService:
     return VideoService()
+
+
+def get_upload_admission_controller() -> UploadAdmissionController:
+    return UploadAdmissionController()
 
 
 def _get_video_job(db: Session, video_id: str) -> VideoJob | None:
@@ -30,12 +35,37 @@ def _get_video_job(db: Session, video_id: str) -> VideoJob | None:
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_video(
-    file: UploadFile = File(..., description="Video file to store; processing runs asynchronously via RQ."),
+    request: Request,
     db: Session = Depends(get_db),
     service: VideoService = Depends(get_video_service),
+    admission: UploadAdmissionController = Depends(get_upload_admission_controller),
 ) -> VideoUploadResponse:
+    decision = admission.check_upload_allowed()
+    if not decision.allowed:
+        http_status = (
+            status.HTTP_429_TOO_MANY_REQUESTS
+            if decision.reason == "queue_backlog_high"
+            else status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+        raise HTTPException(
+            status_code=http_status,
+            detail={
+                "detail": "Upload rejected by admission control",
+                "reason": decision.reason,
+                "queue_depth": decision.queue_depth,
+                "worker_count": decision.worker_count,
+                "max_queue_depth": settings.max_queue_depth_for_uploads,
+                "min_available_workers": settings.min_available_workers_for_uploads,
+            },
+        )
+
+    form = await request.form()
+    file = form.get("file")
+    if not isinstance(file, UploadFile) and not all(hasattr(file, attr) for attr in ("filename", "read", "close")):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file is required")
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="filename is required")
+
     job = await service.upload_and_process(db, file)
     if job.status == VideoJobStatus.FAILED and (job.error_message or "").startswith("enqueue_failed"):
         raise HTTPException(

@@ -29,6 +29,22 @@ VIDEO_UPLOADS_TOTAL = Counter(
     ["storage_backend", "status"],
 )
 
+VIDEO_UPLOAD_REJECTIONS_TOTAL = Counter(
+    "video_upload_rejections_total",
+    "Video uploads rejected by admission control",
+    ["reason", "storage_backend"],
+)
+
+UPLOAD_ADMISSION_QUEUE_DEPTH = Gauge(
+    "upload_admission_queue_depth",
+    "Queue depth observed during upload admission checks",
+)
+
+UPLOAD_ADMISSION_WORKER_COUNT = Gauge(
+    "upload_admission_worker_count",
+    "Worker count observed during upload admission checks",
+)
+
 VIDEO_PROCESSING_JOBS_TOTAL = Counter(
     "video_processing_jobs_total",
     "Video processing job outcomes in workers",

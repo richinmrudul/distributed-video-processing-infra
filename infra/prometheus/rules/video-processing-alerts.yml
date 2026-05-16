@@ -69,3 +69,13 @@ groups:
         annotations:
           summary: "API p95 latency is high"
           description: "The API p95 request latency is above 1 second for 2 minutes."
+
+      - alert: UploadRejectionsDetected
+        expr: increase(video_upload_rejections_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "Upload admission control rejected uploads"
+          description: "The API rejected uploads due to queue backpressure, unavailable queue, or insufficient workers."

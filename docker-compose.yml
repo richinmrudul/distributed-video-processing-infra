@@ -80,6 +80,9 @@ services:
       TRACING_ENABLED: "true"
       OTEL_SERVICE_NAME: video-processing-api
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      UPLOAD_ADMISSION_CONTROL_ENABLED: "true"
+      MAX_QUEUE_DEPTH_FOR_UPLOADS: "50"
+      MIN_AVAILABLE_WORKERS_FOR_UPLOADS: "1"
     volumes:
       - ./storage:/data/storage
     depends_on:

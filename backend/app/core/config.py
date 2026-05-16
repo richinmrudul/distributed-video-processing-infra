@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     rq_job_timeout_seconds: int = 600
     worker_metrics_port: int = 9100
 
+    upload_admission_control_enabled: bool = True
+    max_queue_depth_for_uploads: int = 50
+    min_available_workers_for_uploads: int = 1
+
     storage_root: Path = Path("storage")
 
     # S3-compatible object storage (MinIO). Used when STORAGE_BACKEND=object.
@@ -44,9 +48,9 @@ class Settings(BaseSettings):
     otel_service_name: str = "video-processing-api"
     otel_exporter_otlp_endpoint: str = "http://jaeger:4317"
 
-    @field_validator("tracing_enabled", mode="before")
+    @field_validator("tracing_enabled", "upload_admission_control_enabled", mode="before")
     @classmethod
-    def coerce_tracing_enabled(cls, v: object) -> bool:
+    def coerce_bool(cls, v: object) -> bool:
         if isinstance(v, bool):
             return v
         if v is None:
