@@ -35,6 +35,24 @@ VIDEO_UPLOAD_REJECTIONS_TOTAL = Counter(
     ["reason", "storage_backend"],
 )
 
+VIDEO_UPLOAD_RATE_LIMIT_CHECKS_TOTAL = Counter(
+    "video_upload_rate_limit_checks_total",
+    "Upload rate limit checks",
+    ["outcome"],
+)
+
+VIDEO_UPLOAD_RATE_LIMIT_REJECTIONS_TOTAL = Counter(
+    "video_upload_rate_limit_rejections_total",
+    "Uploads rejected by the upload rate limiter",
+    ["reason"],
+)
+
+UPLOAD_RATE_LIMIT_REMAINING = Gauge(
+    "upload_rate_limit_remaining",
+    "Remaining upload requests in the current rate limit window",
+    ["client_type"],
+)
+
 UPLOAD_ADMISSION_QUEUE_DEPTH = Gauge(
     "upload_admission_queue_depth",
     "Queue depth observed during upload admission checks",

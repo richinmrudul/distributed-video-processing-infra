@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     max_queue_depth_for_uploads: int = 50
     min_available_workers_for_uploads: int = 1
 
+    upload_rate_limit_enabled: bool = True
+    upload_rate_limit_max_requests: int = 10
+    upload_rate_limit_window_seconds: int = 60
+
     storage_root: Path = Path("storage")
 
     # S3-compatible object storage (MinIO). Used when STORAGE_BACKEND=object.
@@ -48,7 +52,7 @@ class Settings(BaseSettings):
     otel_service_name: str = "video-processing-api"
     otel_exporter_otlp_endpoint: str = "http://jaeger:4317"
 
-    @field_validator("tracing_enabled", "upload_admission_control_enabled", mode="before")
+    @field_validator("tracing_enabled", "upload_admission_control_enabled", "upload_rate_limit_enabled", mode="before")
     @classmethod
     def coerce_bool(cls, v: object) -> bool:
         if isinstance(v, bool):

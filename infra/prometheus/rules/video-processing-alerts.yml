@@ -79,3 +79,13 @@ groups:
         annotations:
           summary: "Upload admission control rejected uploads"
           description: "The API rejected uploads due to queue backpressure, unavailable queue, or insufficient workers."
+
+      - alert: UploadRateLimitRejectionsDetected
+        expr: increase(video_upload_rate_limit_rejections_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "Upload rate limit rejections detected"
+          description: "One or more upload requests were rejected by the upload rate limiter in the last 5 minutes."

@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.schemas.video import VideoAssetsResponse, VideoStatusResponse, VideoUploadResponse
 from app.services.admission_control import UploadAdmissionController
 from app.services.object_storage_service import ObjectStorageError, ObjectStorageService
+from app.services.rate_limiter import UploadRateLimiter
 from app.services.video_service import VideoService
 
 router = APIRouter()
@@ -21,6 +22,10 @@ def get_video_service() -> VideoService:
 
 def get_upload_admission_controller() -> UploadAdmissionController:
     return UploadAdmissionController()
+
+
+def get_upload_rate_limiter() -> UploadRateLimiter:
+    return UploadRateLimiter()
 
 
 def _get_video_job(db: Session, video_id: str) -> VideoJob | None:
@@ -38,8 +43,40 @@ async def upload_video(
     request: Request,
     db: Session = Depends(get_db),
     service: VideoService = Depends(get_video_service),
+    rate_limiter: UploadRateLimiter = Depends(get_upload_rate_limiter),
     admission: UploadAdmissionController = Depends(get_upload_admission_controller),
 ) -> VideoUploadResponse:
+    rate_limit = rate_limiter.check_upload_allowed(request)
+    if not rate_limit.allowed:
+        if rate_limit.reason == "rate_limiter_unavailable":
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "detail": "Upload rejected by rate limiter",
+                    "reason": rate_limit.reason,
+                    "limit": rate_limit.limit,
+                    "remaining": rate_limit.remaining,
+                    "reset_seconds": rate_limit.reset_seconds,
+                },
+            )
+        headers = {
+            "X-RateLimit-Limit": str(rate_limit.limit),
+            "X-RateLimit-Remaining": str(rate_limit.remaining),
+            "X-RateLimit-Reset": str(rate_limit.reset_seconds),
+            "Retry-After": str(rate_limit.reset_seconds),
+        }
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "detail": "Upload rejected by rate limiter",
+                "reason": "rate_limited",
+                "limit": rate_limit.limit,
+                "remaining": rate_limit.remaining,
+                "reset_seconds": rate_limit.reset_seconds,
+            },
+            headers=headers,
+        )
+
     decision = admission.check_upload_allowed()
     if not decision.allowed:
         http_status = (

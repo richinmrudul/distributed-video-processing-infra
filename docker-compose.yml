@@ -83,6 +83,9 @@ services:
       UPLOAD_ADMISSION_CONTROL_ENABLED: "true"
       MAX_QUEUE_DEPTH_FOR_UPLOADS: "50"
       MIN_AVAILABLE_WORKERS_FOR_UPLOADS: "1"
+      UPLOAD_RATE_LIMIT_ENABLED: "true"
+      UPLOAD_RATE_LIMIT_MAX_REQUESTS: "10"
+      UPLOAD_RATE_LIMIT_WINDOW_SECONDS: "60"
     volumes:
       - ./storage:/data/storage
     depends_on:
