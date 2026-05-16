@@ -29,3 +29,7 @@ Failure metrics (`failed_jobs_current`, `video_manual_retries_total`) refresh on
 
 Each worker container serves Prometheus metrics on port **9100** inside the Compose network (`/metrics`). Ports are not published to the host. Prometheus scrapes workers via Docker DNS (`worker` service name). RQ job metrics are aggregated with Prometheus multiprocess mode (`PROMETHEUS_MULTIPROC_DIR`).
 
+## Prometheus alerts
+
+Alert rules live in `infra/prometheus/rules/`. View firing/pending alerts at http://localhost:9090/alerts. Alertmanager is not configured yet (no Slack/PagerDuty routing).
+
