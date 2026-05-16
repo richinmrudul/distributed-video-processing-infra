@@ -77,6 +77,9 @@ services:
       PROCESSED_VIDEO_BUCKET: processed-videos
       THUMBNAIL_BUCKET: thumbnails
       STORAGE_BACKEND: object
+      TRACING_ENABLED: "true"
+      OTEL_SERVICE_NAME: video-processing-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
     volumes:
       - ./storage:/data/storage
     depends_on:
@@ -88,6 +91,8 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      jaeger:
+        condition: service_started
 
   # RQ worker: one process per container; scale with `docker compose up --scale worker=N`
   worker:
@@ -112,6 +117,9 @@ services:
       PROCESSED_VIDEO_BUCKET: processed-videos
       THUMBNAIL_BUCKET: thumbnails
       STORAGE_BACKEND: object
+      TRACING_ENABLED: "true"
+      OTEL_SERVICE_NAME: video-processing-worker
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
     volumes:
       - ./storage:/data/storage
     depends_on:
@@ -125,6 +133,17 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      jaeger:
+        condition: service_started
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
 
   prometheus:
     image: prom/prometheus:latest

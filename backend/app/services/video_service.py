@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.metrics import VIDEO_UPLOADS_TOTAL
+from app.core.tracing import start_span
 from app.db.models import VideoJob, VideoJobStatus
 from app.services.object_storage_service import ObjectStorageService
 from app.services.queue_service import QueueService
@@ -55,24 +56,36 @@ class VideoService:
         return job
 
     async def _upload_local_mode(self, db: Session, upload: UploadFile, video_id: str, filename: str) -> VideoJob:
-        raw_path = await self._storage.save_raw_upload(video_id, upload)
+        with start_span(
+            "app.video",
+            "create_video_job",
+            attributes={"video.id": video_id, "storage.backend": "local"},
+        ):
+            job = VideoJob(
+                id=video_id,
+                status=VideoJobStatus.UPLOADED,
+                original_filename=filename,
+                content_type=upload.content_type,
+                storage_backend="local",
+                raw_path=None,
+                attempt_count=0,
+                max_attempts=3,
+            )
+            db.add(job)
+            db.commit()
+            db.refresh(job)
 
-        job = VideoJob(
-            id=video_id,
-            status=VideoJobStatus.UPLOADED,
-            original_filename=filename,
-            content_type=upload.content_type,
-            storage_backend="local",
-            raw_path=str(raw_path),
-            attempt_count=0,
-            max_attempts=3,
-        )
-        db.add(job)
-        db.commit()
-        db.refresh(job)
+        with start_span(
+            "app.video",
+            "save_raw_upload_local",
+            attributes={"video.id": video_id, "storage.backend": "local"},
+        ):
+            raw_path = await self._storage.save_raw_upload(video_id, upload)
+            job.raw_path = str(raw_path)
+            db.commit()
+            db.refresh(job)
 
         log.info("video_uploaded", video_id=video_id, raw_path=str(raw_path), storage_backend="local")
-
         return self._enqueue_or_fail(db, job, video_id)
 
     async def _upload_object_mode(self, db: Session, upload: UploadFile, video_id: str, filename: str) -> VideoJob:
@@ -80,20 +93,30 @@ class VideoService:
         bucket = settings.raw_video_bucket
         dbg_uri = s3_uri(bucket, rkey)
 
-        job = VideoJob(
-            id=video_id,
-            status=VideoJobStatus.UPLOADED,
-            original_filename=filename,
-            content_type=upload.content_type,
-            storage_backend="object",
-            raw_object_key=rkey,
-            raw_path=dbg_uri,
-            attempt_count=0,
-            max_attempts=3,
-        )
-        db.add(job)
-        db.commit()
-        db.refresh(job)
+        with start_span(
+            "app.video",
+            "create_video_job",
+            attributes={
+                "video.id": video_id,
+                "storage.backend": "object",
+                "object.bucket": bucket,
+                "object.key": rkey,
+            },
+        ):
+            job = VideoJob(
+                id=video_id,
+                status=VideoJobStatus.UPLOADED,
+                original_filename=filename,
+                content_type=upload.content_type,
+                storage_backend="object",
+                raw_object_key=rkey,
+                raw_path=dbg_uri,
+                attempt_count=0,
+                max_attempts=3,
+            )
+            db.add(job)
+            db.commit()
+            db.refresh(job)
 
         tmp_path: str | None = None
         try:
@@ -108,8 +131,18 @@ class VideoService:
                     out.write(chunk)
             await upload.close()
 
-            obj = ObjectStorageService()
-            obj.upload_file(bucket, rkey, tmp_path)
+            with start_span(
+                "app.video",
+                "upload_raw_to_object_storage",
+                attributes={
+                    "video.id": video_id,
+                    "storage.backend": "object",
+                    "object.bucket": bucket,
+                    "object.key": rkey,
+                },
+            ):
+                obj = ObjectStorageService()
+                obj.upload_file(bucket, rkey, tmp_path)
         except Exception as exc:
             log.exception("video_object_upload_failed", video_id=video_id)
             job.status = VideoJobStatus.FAILED
@@ -125,12 +158,20 @@ class VideoService:
                     pass
 
         log.info("video_uploaded_object", video_id=video_id, raw_object_key=rkey, bucket=bucket)
-
         return self._enqueue_or_fail(db, job, video_id)
 
     def _enqueue_or_fail(self, db: Session, job: VideoJob, video_id: str) -> VideoJob:
         try:
-            rq_job_id = self._queue.enqueue_video_processing(video_id, max_attempts=job.max_attempts)
+            with start_span(
+                "app.video",
+                "enqueue_video_processing",
+                attributes={
+                    "video.id": video_id,
+                    "storage.backend": job.storage_backend or settings.storage_backend,
+                    "queue.name": settings.queue_name,
+                },
+            ):
+                rq_job_id = self._queue.enqueue_video_processing(video_id, max_attempts=job.max_attempts)
         except Exception as exc:
             log.exception("video_enqueue_failed", video_id=video_id)
             job.status = VideoJobStatus.FAILED

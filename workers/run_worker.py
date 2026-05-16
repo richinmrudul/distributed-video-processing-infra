@@ -14,6 +14,7 @@ from rq import Worker
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.core.tracing import configure_tracing
 
 configure_logging(log_level=settings.log_level, log_json=settings.log_json)
 log = get_logger(__name__)
@@ -32,6 +33,7 @@ def _prepare_multiprocess_dir() -> None:
 
 
 def main() -> None:
+    configure_tracing(settings.otel_service_name)
     _prepare_multiprocess_dir()
 
     port = settings.worker_metrics_port

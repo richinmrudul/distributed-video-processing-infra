@@ -1,8 +1,10 @@
+from opentelemetry import propagate, trace
 from redis import Redis
 from rq import Queue
 from rq.job import Retry
 
 from app.core.config import settings
+from app.core.tracing import start_span
 
 WORKER_JOB_PATH = "workers.video_worker.process_video_job"
 
@@ -22,16 +24,31 @@ class QueueService:
         self._queue = Queue(name, connection=self._redis)
 
     def enqueue_video_processing(self, video_job_id: str, *, max_attempts: int) -> str:
-        rq_max_retries = max(0, max_attempts - 1)
-        retry = (
-            Retry(max=rq_max_retries, interval=RQ_RETRY_INTERVAL_SECONDS)
-            if rq_max_retries
-            else None
-        )
-        rq_job = self._queue.enqueue(
-            WORKER_JOB_PATH,
-            video_job_id,
-            job_timeout=settings.rq_job_timeout_seconds,
-            retry=retry,
-        )
-        return rq_job.id
+        trace_context: dict[str, str] = {}
+        propagate.inject(trace_context)
+
+        with start_span(
+            "app.queue",
+            "enqueue_video_processing",
+            attributes={
+                "video.id": video_job_id,
+                "queue.name": settings.queue_name,
+            },
+        ):
+            rq_max_retries = max(0, max_attempts - 1)
+            retry = (
+                Retry(max=rq_max_retries, interval=RQ_RETRY_INTERVAL_SECONDS)
+                if rq_max_retries
+                else None
+            )
+            rq_job = self._queue.enqueue(
+                WORKER_JOB_PATH,
+                video_job_id,
+                trace_context=trace_context,
+                job_timeout=settings.rq_job_timeout_seconds,
+                retry=retry,
+            )
+            span = trace.get_current_span()
+            if span.is_recording():
+                span.set_attribute("queue.job_id", rq_job.id)
+            return rq_job.id

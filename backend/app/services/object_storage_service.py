@@ -13,6 +13,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.metrics import record_object_storage_operation
+from app.core.tracing import storage_span
 
 log = get_logger(__name__)
 
@@ -99,6 +100,10 @@ class ObjectStorageService:
             return False
 
     def list_buckets(self) -> list[str]:
+        with storage_span("list_buckets", "unknown"):
+            return self._list_buckets_impl()
+
+    def _list_buckets_impl(self) -> list[str]:
         try:
             resp = self._client.list_buckets()
             out: list[str] = []
@@ -140,6 +145,10 @@ class ObjectStorageService:
             raise ObjectStorageError(f"create_bucket failed: {exc}") from exc
 
     def upload_file(self, bucket_name: str, object_key: str, file_path: str) -> None:
+        with storage_span("upload_file", bucket_name, object_key):
+            self._upload_file_impl(bucket_name, object_key, file_path)
+
+    def _upload_file_impl(self, bucket_name: str, object_key: str, file_path: str) -> None:
         path = Path(file_path)
         if not path.is_file():
             raise ObjectStorageError(f"upload source not found: {file_path}")
@@ -152,6 +161,10 @@ class ObjectStorageService:
             raise ObjectStorageError(f"upload_file failed: {exc}") from exc
 
     def download_file(self, bucket_name: str, object_key: str, destination_path: str) -> None:
+        with storage_span("download_file", bucket_name, object_key):
+            self._download_file_impl(bucket_name, object_key, destination_path)
+
+    def _download_file_impl(self, bucket_name: str, object_key: str, destination_path: str) -> None:
         dest = Path(destination_path)
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -163,6 +176,10 @@ class ObjectStorageService:
             raise ObjectStorageError(f"download_file failed: {exc}") from exc
 
     def object_exists(self, bucket_name: str, object_key: str) -> bool:
+        with storage_span("object_exists", bucket_name, object_key):
+            return self._object_exists_impl(bucket_name, object_key)
+
+    def _object_exists_impl(self, bucket_name: str, object_key: str) -> bool:
         try:
             self._client.head_object(Bucket=bucket_name, Key=object_key)
             record_object_storage_operation("object_exists", bucket_name, success=True)
@@ -187,6 +204,15 @@ class ObjectStorageService:
         bucket_name: str,
         object_key: str,
         expires_in_seconds: int = 3600,
+    ) -> str:
+        with storage_span("generate_presigned_url", bucket_name, object_key):
+            return self._generate_presigned_url_impl(bucket_name, object_key, expires_in_seconds)
+
+    def _generate_presigned_url_impl(
+        self,
+        bucket_name: str,
+        object_key: str,
+        expires_in_seconds: int,
     ) -> str:
         internal = _normalize_endpoint(settings.object_storage_endpoint)
         public = _normalize_endpoint(settings.object_storage_public_endpoint)

@@ -8,6 +8,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.core.prometheus_middleware import PrometheusMiddleware
+from app.core.tracing import configure_tracing, instrument_fastapi
 from app.services.processing_service import ProcessingService
 from app.services.storage_service import StorageService
 
@@ -24,9 +25,12 @@ async def lifespan(app: FastAPI):
     log.info("application_shutdown")
 
 
+configure_tracing(settings.otel_service_name)
+
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.add_middleware(PrometheusMiddleware)
 app.include_router(api_router, prefix="/api/v1")
+instrument_fastapi(app)
 
 
 @app.get("/health")

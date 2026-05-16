@@ -10,6 +10,9 @@ import socket
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
+from opentelemetry import context as context_api, propagate, trace
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
@@ -20,6 +23,7 @@ from app.core.metrics import (
     VIDEO_PROCESSING_JOBS_TOTAL,
     VIDEO_RETRY_EXHAUSTED_TOTAL,
 )
+from app.core.tracing import configure_tracing, record_span_exception, start_span
 from app.db.models import VideoJob, VideoJobStatus
 from app.db.session import SessionLocal
 from app.services.object_storage_service import ObjectStorageError, ObjectStorageService
@@ -29,6 +33,15 @@ from app.utils.object_keys import processed_object_key, s3_uri, thumbnail_object
 
 configure_logging(log_level=settings.log_level, log_json=settings.log_json)
 log = get_logger(__name__)
+
+_tracing_ready = False
+
+
+def _ensure_worker_tracing() -> None:
+    global _tracing_ready
+    if not _tracing_ready:
+        configure_tracing(settings.otel_service_name)
+        _tracing_ready = True
 
 
 def _worker_identifier() -> str:
@@ -43,6 +56,22 @@ def _storage_backend_label(job: VideoJob | None) -> str:
     if job is None:
         return "unknown"
     return job.storage_backend or "local"
+
+
+def _job_span_attributes(job: VideoJob) -> dict[str, Any]:
+    return {
+        "video.id": job.id,
+        "storage.backend": job.storage_backend or "local",
+        "attempt_count": job.attempt_count,
+        "max_attempts": job.max_attempts,
+        "retry_exhausted": job.retry_exhausted,
+    }
+
+
+def _set_error_type_on_span(error_type: str) -> None:
+    span = trace.get_current_span()
+    if span.is_recording():
+        span.set_attribute("error.type", error_type)
 
 
 def _record_processing_success(job: VideoJob, duration_s: float) -> None:
@@ -71,7 +100,6 @@ def _mark_job_failed(job: VideoJob, exc: BaseException, processing_start: dateti
 
 
 def _should_rq_retry(job: VideoJob) -> bool:
-    """True when another worker attempt should run (DB attempt budget not exhausted)."""
     return job.attempt_count < job.max_attempts
 
 
@@ -89,7 +117,6 @@ def _record_processing_failure(
 
 
 def _record_job_lifecycle_failure(job: VideoJob, error_type: str) -> None:
-    """Job lifecycle counters (worker registry; not scraped until worker exposes /metrics)."""
     backend = _storage_backend_label(job)
     exhausted_label = "true" if job.retry_exhausted else "false"
     VIDEO_JOBS_FAILED_TOTAL.labels(
@@ -101,8 +128,84 @@ def _record_job_lifecycle_failure(job: VideoJob, error_type: str) -> None:
         VIDEO_RETRY_EXHAUSTED_TOTAL.labels(storage_backend=backend, error_type=error_type).inc()
 
 
-def process_video_job(job_id: str) -> None:
-    """Load job from DB, transcode with FFmpeg, update status. Uses its own DB session (no FastAPI)."""
+def _run_processing(job: VideoJob, job_id: str, processing: ProcessingService) -> None:
+    if _is_local_job(job):
+        if not job.raw_path:
+            raise ProcessingError("missing raw_path for local job")
+        raw_path = Path(job.raw_path)
+        with start_span(
+            "workers.video_worker",
+            "ffmpeg_process",
+            attributes=_job_span_attributes(job),
+        ):
+            processed, thumbnail = processing.process(job_id, raw_path)
+            job.processed_path = str(processed)
+            job.thumbnail_path = str(thumbnail)
+        return
+
+    if not job.raw_object_key:
+        raise ProcessingError("missing raw_object_key for object job")
+    pk = processed_object_key(job.id)
+    tk = thumbnail_object_key(job.id)
+    suffix = Path(job.original_filename).suffix or ".bin"
+    bucket_raw = settings.raw_video_bucket
+    bucket_proc = settings.processed_video_bucket
+    bucket_thumb = settings.thumbnail_bucket
+    obj = ObjectStorageService()
+
+    with tempfile.TemporaryDirectory() as td:
+        tdir = Path(td)
+        raw_local = tdir / f"input{suffix}"
+        out_mp4 = tdir / f"{job.id}.mp4"
+        out_thumb = tdir / f"{job.id}.jpg"
+
+        with start_span(
+            "workers.video_worker",
+            "download_raw_object",
+            attributes={
+                **_job_span_attributes(job),
+                "object.bucket": bucket_raw,
+                "object.key": job.raw_object_key,
+            },
+        ):
+            obj.download_file(bucket_raw, job.raw_object_key, str(raw_local))
+
+        with start_span(
+            "workers.video_worker",
+            "ffmpeg_process",
+            attributes=_job_span_attributes(job),
+        ):
+            processing.process_paths(raw_local, out_mp4, out_thumb)
+
+        with start_span(
+            "workers.video_worker",
+            "upload_processed_object",
+            attributes={
+                **_job_span_attributes(job),
+                "object.bucket": bucket_proc,
+                "object.key": pk,
+            },
+        ):
+            obj.upload_file(bucket_proc, pk, str(out_mp4))
+
+        with start_span(
+            "workers.video_worker",
+            "upload_thumbnail_object",
+            attributes={
+                **_job_span_attributes(job),
+                "object.bucket": bucket_thumb,
+                "object.key": tk,
+            },
+        ):
+            obj.upload_file(bucket_thumb, tk, str(out_thumb))
+
+        job.processed_object_key = pk
+        job.thumbnail_object_key = tk
+        job.processed_path = s3_uri(bucket_proc, pk)
+        job.thumbnail_path = s3_uri(bucket_thumb, tk)
+
+
+def _process_video_job_impl(job_id: str) -> None:
     worker_id = _worker_identifier()
     log.info("worker_job_picked_up", video_id=job_id, worker_id=worker_id)
     db = SessionLocal()
@@ -155,33 +258,7 @@ def process_video_job(job_id: str) -> None:
         )
 
         processing = ProcessingService()
-        if _is_local_job(job):
-            if not job.raw_path:
-                raise ProcessingError("missing raw_path for local job")
-            raw_path = Path(job.raw_path)
-            processed, thumbnail = processing.process(job_id, raw_path)
-            job.processed_path = str(processed)
-            job.thumbnail_path = str(thumbnail)
-        else:
-            if not job.raw_object_key:
-                raise ProcessingError("missing raw_object_key for object job")
-            pk = processed_object_key(job.id)
-            tk = thumbnail_object_key(job.id)
-            suffix = Path(job.original_filename).suffix or ".bin"
-            with tempfile.TemporaryDirectory() as td:
-                tdir = Path(td)
-                raw_local = tdir / f"input{suffix}"
-                out_mp4 = tdir / f"{job.id}.mp4"
-                out_thumb = tdir / f"{job.id}.jpg"
-                obj = ObjectStorageService()
-                obj.download_file(settings.raw_video_bucket, job.raw_object_key, str(raw_local))
-                processing.process_paths(raw_local, out_mp4, out_thumb)
-                obj.upload_file(settings.processed_video_bucket, pk, str(out_mp4))
-                obj.upload_file(settings.thumbnail_bucket, tk, str(out_thumb))
-                job.processed_object_key = pk
-                job.thumbnail_object_key = tk
-                job.processed_path = s3_uri(settings.processed_video_bucket, pk)
-                job.thumbnail_path = s3_uri(settings.thumbnail_bucket, tk)
+        _run_processing(job, job_id, processing)
 
         completed_at = datetime.now(timezone.utc)
         duration_s = (completed_at - processing_start).total_seconds()
@@ -199,11 +276,17 @@ def process_video_job(job_id: str) -> None:
         except (OSError, ObjectStorageError):
             pass
 
-        _clear_failure_metadata(job)
-        job.status = VideoJobStatus.COMPLETED
-        job.processing_completed_at = completed_at
-        job.processing_duration_seconds = duration_s
-        db.commit()
+        with start_span(
+            "workers.video_worker",
+            "update_video_job_status",
+            attributes={**_job_span_attributes(job), "job.status": "COMPLETED"},
+        ):
+            _clear_failure_metadata(job)
+            job.status = VideoJobStatus.COMPLETED
+            job.processing_completed_at = completed_at
+            job.processing_duration_seconds = duration_s
+            db.commit()
+
         _record_processing_success(job, duration_s)
         log.info(
             "worker_job_finished",
@@ -220,9 +303,15 @@ def process_video_job(job_id: str) -> None:
         job = db.get(VideoJob, job_id)
         if job is not None:
             _mark_job_failed(job, exc, processing_start)
-            db.commit()
+            with start_span(
+                "workers.video_worker",
+                "update_video_job_status",
+                attributes={**_job_span_attributes(job), "job.status": "FAILED"},
+            ):
+                db.commit()
             duration_s = job.processing_duration_seconds
             error_type = type(exc).__name__
+            _set_error_type_on_span(error_type)
             _record_processing_failure(job, error_type=error_type, duration_s=duration_s)
             _record_job_lifecycle_failure(job, error_type)
             outcome = "failure" if _should_rq_retry(job) else "permanent_failure"
@@ -246,9 +335,15 @@ def process_video_job(job_id: str) -> None:
         job = db.get(VideoJob, job_id)
         if job is not None:
             _mark_job_failed(job, exc, processing_start)
-            db.commit()
+            with start_span(
+                "workers.video_worker",
+                "update_video_job_status",
+                attributes={**_job_span_attributes(job), "job.status": "FAILED"},
+            ):
+                db.commit()
             duration_s = job.processing_duration_seconds
             error_type = type(exc).__name__
+            _set_error_type_on_span(error_type)
             _record_processing_failure(job, error_type=error_type, duration_s=duration_s)
             _record_job_lifecycle_failure(job, error_type)
             outcome = "failure" if _should_rq_retry(job) else "permanent_failure"
@@ -270,3 +365,24 @@ def process_video_job(job_id: str) -> None:
         raise
     finally:
         db.close()
+
+
+def process_video_job(job_id: str, trace_context: dict | None = None) -> None:
+    """Load job from DB, transcode with FFmpeg, update status. Uses its own DB session (no FastAPI)."""
+    _ensure_worker_tracing()
+    ctx = propagate.extract(trace_context or {})
+    token = context_api.attach(ctx)
+    try:
+        with start_span(
+            "workers.video_worker",
+            "worker_process_video_job",
+            attributes={"video.id": job_id},
+        ):
+            _process_video_job_impl(job_id)
+    except Exception as exc:
+        span = trace.get_current_span()
+        if span.is_recording():
+            record_span_exception(span, exc)
+        raise
+    finally:
+        context_api.detach(token)

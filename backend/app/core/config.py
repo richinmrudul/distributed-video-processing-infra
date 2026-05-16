@@ -40,6 +40,24 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_json: bool = False
 
+    tracing_enabled: bool = True
+    otel_service_name: str = "video-processing-api"
+    otel_exporter_otlp_endpoint: str = "http://jaeger:4317"
+
+    @field_validator("tracing_enabled", mode="before")
+    @classmethod
+    def coerce_tracing_enabled(cls, v: object) -> bool:
+        if isinstance(v, bool):
+            return v
+        if v is None:
+            return True
+        s = str(v).strip().lower()
+        if s in ("0", "false", "no", "n", "off"):
+            return False
+        if s in ("1", "true", "yes", "y", "on"):
+            return True
+        return True
+
     @field_validator("storage_backend", mode="before")
     @classmethod
     def coerce_storage_backend(cls, v: object) -> str:
