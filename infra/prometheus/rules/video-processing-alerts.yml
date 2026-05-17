@@ -119,3 +119,23 @@ groups:
         annotations:
           summary: "Stuck job recovery failures detected"
           description: "One or more stuck jobs failed to re-enqueue during recovery."
+
+      - alert: ReconcilerDown
+        expr: up{job="reconciler"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          service: reconciler
+        annotations:
+          summary: "Reconciler target is down"
+          description: "Prometheus cannot scrape the stuck job reconciler metrics endpoint."
+
+      - alert: ReconcilerNotRunning
+        expr: time() - reconciler_last_run_timestamp_seconds{job="reconciler"} > 180
+        for: 1m
+        labels:
+          severity: warning
+          service: reconciler
+        annotations:
+          summary: "Reconciler has not run recently"
+          description: "The stuck job reconciler has not completed a run in over 3 minutes."

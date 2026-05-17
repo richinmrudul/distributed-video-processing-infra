@@ -142,6 +142,33 @@ STUCK_JOBS_RECOVERED_TOTAL = Counter(
 _STUCK_JOB_STATUSES = ("PROCESSING", "QUEUED")
 _STUCK_JOB_REASONS = ("processing_timeout", "queued_timeout")
 
+RECONCILER_RUNS_TOTAL = Counter(
+    "reconciler_runs_total",
+    "Reconciler loop executions",
+    ["outcome"],
+)
+
+RECONCILER_JOBS_INSPECTED_TOTAL = Counter(
+    "reconciler_jobs_inspected_total",
+    "Jobs inspected by the reconciler",
+)
+
+RECONCILER_JOBS_RECOVERED_TOTAL = Counter(
+    "reconciler_jobs_recovered_total",
+    "Stuck job recovery outcomes from the reconciler",
+    ["outcome"],
+)
+
+RECONCILER_LAST_RUN_TIMESTAMP_SECONDS = Gauge(
+    "reconciler_last_run_timestamp_seconds",
+    "Unix timestamp of the reconciler's last completed run",
+)
+
+RECONCILER_LAST_RUN_DURATION_SECONDS = Gauge(
+    "reconciler_last_run_duration_seconds",
+    "Duration in seconds of the reconciler's last completed run",
+)
+
 # --- Queue (updated when /api/v1/queue/health runs) ---
 
 QUEUE_DEPTH = Gauge(

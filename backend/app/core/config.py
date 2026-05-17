@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     stuck_queued_timeout_seconds: int = 300
     stuck_job_recovery_enabled: bool = True
 
+    reconciler_enabled: bool = True
+    reconciler_interval_seconds: int = 60
+    reconciler_startup_delay_seconds: int = 10
+    reconciler_oneshot: bool = False
+    reconciler_metrics_port: int = 9200
+
     storage_root: Path = Path("storage")
 
     # S3-compatible object storage (MinIO). Used when STORAGE_BACKEND=object.
@@ -69,6 +75,8 @@ class Settings(BaseSettings):
         "upload_rate_limit_enabled",
         "upload_validation_enabled",
         "stuck_job_recovery_enabled",
+        "reconciler_enabled",
+        "reconciler_oneshot",
         mode="before",
     )
     @classmethod

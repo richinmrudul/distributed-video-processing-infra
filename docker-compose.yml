@@ -149,6 +149,50 @@ services:
       jaeger:
         condition: service_started
 
+  # Single local reconciler only; production needs leader election/distributed locking before scaling.
+  reconciler:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["python", "-m", "workers.run_reconciler"]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://video:video@db:5432/video
+      REDIS_URL: redis://redis:6379/0
+      QUEUE_NAME: video-processing
+      STORAGE_ROOT: /data/storage
+      LOG_LEVEL: INFO
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_ACCESS_KEY: minioadmin
+      OBJECT_STORAGE_SECRET_KEY: minioadmin
+      OBJECT_STORAGE_REGION: us-east-1
+      OBJECT_STORAGE_SECURE: "false"
+      RAW_VIDEO_BUCKET: raw-videos
+      PROCESSED_VIDEO_BUCKET: processed-videos
+      THUMBNAIL_BUCKET: thumbnails
+      STORAGE_BACKEND: object
+      TRACING_ENABLED: "true"
+      OTEL_SERVICE_NAME: video-processing-reconciler
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      STUCK_PROCESSING_TIMEOUT_SECONDS: "300"
+      STUCK_QUEUED_TIMEOUT_SECONDS: "300"
+      STUCK_JOB_RECOVERY_ENABLED: "true"
+      RECONCILER_ENABLED: "true"
+      RECONCILER_INTERVAL_SECONDS: "60"
+      RECONCILER_STARTUP_DELAY_SECONDS: "10"
+      RECONCILER_ONESHOT: "false"
+      RECONCILER_METRICS_PORT: "9200"
+    volumes:
+      - ./storage:/data/storage
+    depends_on:
+      api:
+        condition: service_started
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      jaeger:
+        condition: service_started
+
   jaeger:
     image: jaegertracing/all-in-one:latest
     ports:

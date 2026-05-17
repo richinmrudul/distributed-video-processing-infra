@@ -17,6 +17,12 @@ log = get_logger(__name__)
 class JobRecoveryService:
     def __init__(self, queue: QueueService | None = None) -> None:
         self._queue = queue or QueueService()
+        self.last_recovery_outcomes: dict[str, int] = {
+            "requeued": 0,
+            "failed": 0,
+            "skipped": 0,
+            "enqueue_failed": 0,
+        }
 
     def find_stuck_jobs(self, db: Session) -> list[StuckJobResponse]:
         with start_span("app.job_recovery", "find_stuck_jobs") as span:
@@ -40,6 +46,12 @@ class JobRecoveryService:
 
     def recover_stuck_jobs(self, db: Session) -> RecoveryResultResponse:
         with start_span("app.job_recovery", "recover_stuck_jobs") as span:
+            self.last_recovery_outcomes = {
+                "requeued": 0,
+                "failed": 0,
+                "skipped": 0,
+                "enqueue_failed": 0,
+            }
             stuck_jobs = self.find_stuck_jobs(db)
             recovered_ids: list[str] = []
             failed_ids: list[str] = []
@@ -61,6 +73,7 @@ class JobRecoveryService:
                     failed_ids.append(job.id)
                 else:
                     skipped_ids.append(job.id)
+                self.last_recovery_outcomes[outcome] = self.last_recovery_outcomes.get(outcome, 0) + 1
 
             refreshed = self.find_stuck_jobs(db)
             refresh_stuck_jobs_gauge(refreshed)
