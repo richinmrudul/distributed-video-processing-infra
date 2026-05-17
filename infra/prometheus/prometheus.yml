@@ -22,5 +22,8 @@ scrape_configs:
 
   - job_name: reconciler
     metrics_path: /metrics
-    static_configs:
-      - targets: ["reconciler:9200"]
+    dns_sd_configs:
+      - names:
+          - reconciler
+        type: A
+        port: 9200

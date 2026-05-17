@@ -169,6 +169,32 @@ RECONCILER_LAST_RUN_DURATION_SECONDS = Gauge(
     "Duration in seconds of the reconciler's last completed run",
 )
 
+RECONCILER_LOCK_ACQUIRE_TOTAL = Counter(
+    "reconciler_lock_acquire_total",
+    "Reconciler Redis lock acquisition attempts",
+    ["outcome"],
+)
+
+RECONCILER_LOCK_HELD = Gauge(
+    "reconciler_lock_held",
+    "Whether this reconciler instance currently holds the Redis lock",
+)
+
+RECONCILER_LOCK_RELEASE_TOTAL = Counter(
+    "reconciler_lock_release_total",
+    "Reconciler Redis lock release attempts",
+    ["outcome"],
+)
+
+
+def initialize_reconciler_lock_metrics() -> None:
+    """Create zero-valued reconciler lock series before the first lock cycle."""
+    for outcome in ("acquired", "skipped", "error", "disabled"):
+        RECONCILER_LOCK_ACQUIRE_TOTAL.labels(outcome=outcome)
+    for outcome in ("released", "failed", "skipped"):
+        RECONCILER_LOCK_RELEASE_TOTAL.labels(outcome=outcome)
+    RECONCILER_LOCK_HELD.set(0)
+
 # --- Queue (updated when /api/v1/queue/health runs) ---
 
 QUEUE_DEPTH = Gauge(

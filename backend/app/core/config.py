@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     reconciler_startup_delay_seconds: int = 10
     reconciler_oneshot: bool = False
     reconciler_metrics_port: int = 9200
+    reconciler_lock_enabled: bool = True
+    reconciler_lock_key: str = "reconciler:stuck-job-recovery"
+    reconciler_lock_ttl_seconds: int = 55
+    reconciler_lock_acquire_timeout_seconds: int = 2
 
     storage_root: Path = Path("storage")
 
@@ -77,6 +81,7 @@ class Settings(BaseSettings):
         "stuck_job_recovery_enabled",
         "reconciler_enabled",
         "reconciler_oneshot",
+        "reconciler_lock_enabled",
         mode="before",
     )
     @classmethod
@@ -91,6 +96,28 @@ class Settings(BaseSettings):
         if s in ("1", "true", "yes", "y", "on"):
             return True
         return True
+
+    @field_validator(
+        "reconciler_lock_ttl_seconds",
+        "reconciler_lock_acquire_timeout_seconds",
+        mode="before",
+    )
+    @classmethod
+    def coerce_reconciler_lock_ints(cls, v: object, info: ValidationInfo) -> int:
+        defaults = {
+            "reconciler_lock_ttl_seconds": 55,
+            "reconciler_lock_acquire_timeout_seconds": 2,
+        }
+        minimums = {
+            "reconciler_lock_ttl_seconds": 1,
+            "reconciler_lock_acquire_timeout_seconds": 0,
+        }
+        default = defaults[info.field_name]
+        try:
+            value = int(str(v).strip())
+        except (TypeError, ValueError):
+            return default
+        return value if value >= minimums[info.field_name] else default
 
     @field_validator("storage_backend", mode="before")
     @classmethod

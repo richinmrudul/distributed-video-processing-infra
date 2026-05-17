@@ -9,3 +9,5 @@ g
 ## Reconciler service
 
 The `reconciler` service periodically runs stuck job recovery every `60` seconds by default. Manual stuck-job endpoints still exist. Local Compose runs one reconciler instance; production needs leader election or a distributed lock before scaling it.
+
+The reconciler uses a Redis lock so only one instance performs recovery at a time. Local Compose still runs one reconciler by default; scaling is safer now but still not intended without deeper production leader-election design.

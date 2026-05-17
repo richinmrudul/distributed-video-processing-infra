@@ -139,3 +139,23 @@ groups:
         annotations:
           summary: "Reconciler has not run recently"
           description: "The stuck job reconciler has not completed a run in over 3 minutes."
+
+      - alert: ReconcilerLockAcquireErrors
+        expr: increase(reconciler_lock_acquire_total{outcome="error"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: reconciler
+        annotations:
+          summary: "Reconciler lock acquisition errors detected"
+          description: "The stuck job reconciler encountered errors while trying to acquire its Redis lock."
+
+      - alert: ReconcilerLockReleaseFailures
+        expr: increase(reconciler_lock_release_total{outcome="failed"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: reconciler
+        annotations:
+          summary: "Reconciler lock release failures detected"
+          description: "The stuck job reconciler failed to safely release its Redis lock."

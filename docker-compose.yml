@@ -149,7 +149,7 @@ services:
       jaeger:
         condition: service_started
 
-  # Single local reconciler only; production needs leader election/distributed locking before scaling.
+  # One local reconciler by default; Redis locking guards recovery if this is scaled.
   reconciler:
     build:
       context: .
@@ -181,6 +181,10 @@ services:
       RECONCILER_STARTUP_DELAY_SECONDS: "10"
       RECONCILER_ONESHOT: "false"
       RECONCILER_METRICS_PORT: "9200"
+      RECONCILER_LOCK_ENABLED: "true"
+      RECONCILER_LOCK_KEY: reconciler:stuck-job-recovery
+      RECONCILER_LOCK_TTL_SECONDS: "55"
+      RECONCILER_LOCK_ACQUIRE_TIMEOUT_SECONDS: "2"
     volumes:
       - ./storage:/data/storage
     depends_on:
