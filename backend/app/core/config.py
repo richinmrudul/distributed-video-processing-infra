@@ -33,6 +33,10 @@ class Settings(BaseSettings):
         "video/mp4,video/quicktime,video/x-matroska,video/webm,application/octet-stream"
     )
 
+    stuck_processing_timeout_seconds: int = 300
+    stuck_queued_timeout_seconds: int = 300
+    stuck_job_recovery_enabled: bool = True
+
     storage_root: Path = Path("storage")
 
     # S3-compatible object storage (MinIO). Used when STORAGE_BACKEND=object.
@@ -64,6 +68,7 @@ class Settings(BaseSettings):
         "upload_admission_control_enabled",
         "upload_rate_limit_enabled",
         "upload_validation_enabled",
+        "stuck_job_recovery_enabled",
         mode="before",
     )
     @classmethod

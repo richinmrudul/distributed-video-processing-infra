@@ -99,3 +99,23 @@ groups:
         annotations:
           summary: "Upload validation rejections detected"
           description: "One or more upload requests were rejected by upload validation."
+
+      - alert: StuckJobsDetected
+        expr: sum(stuck_jobs_current) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: jobs
+        annotations:
+          summary: "Stuck video jobs detected"
+          description: "One or more video jobs appear stuck in QUEUED or PROCESSING state."
+
+      - alert: StuckJobRecoveryFailuresDetected
+        expr: increase(stuck_jobs_recovered_total{outcome="enqueue_failed"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: jobs
+        annotations:
+          summary: "Stuck job recovery failures detected"
+          description: "One or more stuck jobs failed to re-enqueue during recovery."

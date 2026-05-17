@@ -127,6 +127,21 @@ FAILED_JOBS_CURRENT = Gauge(
 
 _FAILED_JOBS_GAUGE_BACKENDS = ("local", "object", "unknown")
 
+STUCK_JOBS_CURRENT = Gauge(
+    "stuck_jobs_current",
+    "Current stuck video jobs in Postgres",
+    ["status", "stuck_reason"],
+)
+
+STUCK_JOBS_RECOVERED_TOTAL = Counter(
+    "stuck_jobs_recovered_total",
+    "Stuck job recovery outcomes",
+    ["original_status", "outcome"],
+)
+
+_STUCK_JOB_STATUSES = ("PROCESSING", "QUEUED")
+_STUCK_JOB_REASONS = ("processing_timeout", "queued_timeout")
+
 # --- Queue (updated when /api/v1/queue/health runs) ---
 
 QUEUE_DEPTH = Gauge(
@@ -221,6 +236,25 @@ def refresh_failed_jobs_gauge(db) -> None:
             storage_backend=backend,
             retry_exhausted="true" if retry_exhausted else "false",
         ).set(int(count))
+
+
+def refresh_stuck_jobs_gauge(stuck_jobs: list) -> None:
+    """Set stuck_jobs_current from a discovered stuck-job snapshot."""
+    for status in _STUCK_JOB_STATUSES:
+        for reason in _STUCK_JOB_REASONS:
+            STUCK_JOBS_CURRENT.labels(status=status, stuck_reason=reason).set(0)
+
+    counts: dict[tuple[str, str], int] = {}
+    for stuck_job in stuck_jobs:
+        status = getattr(stuck_job, "status", "")
+        if hasattr(status, "value"):
+            status = status.value
+        reason = getattr(stuck_job, "stuck_reason", "unknown")
+        key = (str(status), str(reason))
+        counts[key] = counts.get(key, 0) + 1
+
+    for (status, reason), count in counts.items():
+        STUCK_JOBS_CURRENT.labels(status=status, stuck_reason=reason).set(count)
 
 
 def clear_queue_gauges(queue_name: str) -> None:
