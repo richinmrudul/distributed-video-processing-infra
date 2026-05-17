@@ -53,6 +53,23 @@ UPLOAD_RATE_LIMIT_REMAINING = Gauge(
     ["client_type"],
 )
 
+VIDEO_UPLOAD_VALIDATION_CHECKS_TOTAL = Counter(
+    "video_upload_validation_checks_total",
+    "Upload validation checks",
+    ["outcome"],
+)
+
+VIDEO_UPLOAD_VALIDATION_REJECTIONS_TOTAL = Counter(
+    "video_upload_validation_rejections_total",
+    "Uploads rejected by validation",
+    ["reason"],
+)
+
+UPLOAD_VALIDATION_CONTENT_LENGTH_BYTES = Gauge(
+    "upload_validation_content_length_bytes",
+    "Last observed upload request Content-Length in bytes",
+)
+
 UPLOAD_ADMISSION_QUEUE_DEPTH = Gauge(
     "upload_admission_queue_depth",
     "Queue depth observed during upload admission checks",

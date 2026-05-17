@@ -10,6 +10,7 @@ from app.schemas.video import VideoAssetsResponse, VideoStatusResponse, VideoUpl
 from app.services.admission_control import UploadAdmissionController
 from app.services.object_storage_service import ObjectStorageError, ObjectStorageService
 from app.services.rate_limiter import UploadRateLimiter
+from app.services.upload_validation import UploadValidationDecision, UploadValidator
 from app.services.video_service import VideoService
 
 router = APIRouter()
@@ -26,6 +27,10 @@ def get_upload_admission_controller() -> UploadAdmissionController:
 
 def get_upload_rate_limiter() -> UploadRateLimiter:
     return UploadRateLimiter()
+
+
+def get_upload_validator() -> UploadValidator:
+    return UploadValidator()
 
 
 def _get_video_job(db: Session, video_id: str) -> VideoJob | None:
@@ -45,6 +50,7 @@ async def upload_video(
     service: VideoService = Depends(get_video_service),
     rate_limiter: UploadRateLimiter = Depends(get_upload_rate_limiter),
     admission: UploadAdmissionController = Depends(get_upload_admission_controller),
+    validator: UploadValidator = Depends(get_upload_validator),
 ) -> VideoUploadResponse:
     rate_limit = rate_limiter.check_upload_allowed(request)
     if not rate_limit.allowed:
@@ -96,12 +102,18 @@ async def upload_video(
             },
         )
 
+    metadata_validation = validator.validate_request_metadata(request)
+    if not metadata_validation.allowed:
+        raise _upload_validation_exception(metadata_validation)
+
     form = await request.form()
     file = form.get("file")
     if not isinstance(file, UploadFile) and not all(hasattr(file, attr) for attr in ("filename", "read", "close")):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="file is required")
-    if not file.filename:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="filename is required")
+    file_validation = validator.validate_upload_file(file)
+    if not file_validation.allowed:
+        await file.close()
+        raise _upload_validation_exception(file_validation)
 
     job = await service.upload_and_process(db, file)
     if job.status == VideoJobStatus.FAILED and (job.error_message or "").startswith("enqueue_failed"):
@@ -114,6 +126,32 @@ async def upload_video(
             },
         )
     return VideoUploadResponse.model_validate(job)
+
+
+def _upload_validation_exception(decision: UploadValidationDecision) -> HTTPException:
+    reason = decision.reason or "upload_validation_failed"
+    if reason == "upload_too_large":
+        http_status = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    elif reason in ("unsupported_extension", "unsupported_content_type"):
+        http_status = status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+    else:
+        http_status = status.HTTP_400_BAD_REQUEST
+
+    detail = {
+        "detail": "Upload rejected by validation",
+        "reason": reason,
+        "max_bytes": decision.max_bytes,
+        "content_length": decision.content_length,
+    }
+    if decision.filename is not None:
+        detail["filename"] = decision.filename
+    if decision.content_type is not None:
+        detail["content_type"] = decision.content_type
+    if reason == "unsupported_extension":
+        detail["allowed_extensions"] = settings.allowed_video_extensions_list
+    if reason == "unsupported_content_type":
+        detail["allowed_content_types"] = settings.allowed_video_content_types_list
+    return HTTPException(status_code=http_status, detail=detail)
 
 
 # Register before /{video_id}/status so literal path segments are not shadowed by another dynamic route.

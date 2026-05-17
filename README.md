@@ -13,3 +13,7 @@ Uploads are rejected when the queue is too deep or worker count is too low. Defa
 ## Upload rate limiting
 
 Upload rate limiting uses Redis and is separate from queue backpressure. Default: `10` uploads per `60` seconds per client IP; rejected uploads return HTTP `429`.
+
+## Upload validation
+
+Uploads are validated before storage/queue work. Default max size is `100 MB`; allowed extensions are `.mp4`, `.mov`, `.mkv`, `.webm`.

@@ -86,6 +86,10 @@ services:
       UPLOAD_RATE_LIMIT_ENABLED: "true"
       UPLOAD_RATE_LIMIT_MAX_REQUESTS: "10"
       UPLOAD_RATE_LIMIT_WINDOW_SECONDS: "60"
+      UPLOAD_VALIDATION_ENABLED: "true"
+      MAX_UPLOAD_BYTES: "104857600"
+      ALLOWED_VIDEO_EXTENSIONS: .mp4,.mov,.mkv,.webm
+      ALLOWED_VIDEO_CONTENT_TYPES: video/mp4,video/quicktime,video/x-matroska,video/webm,application/octet-stream
     volumes:
       - ./storage:/data/storage
     depends_on:

@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     upload_rate_limit_max_requests: int = 10
     upload_rate_limit_window_seconds: int = 60
 
+    upload_validation_enabled: bool = True
+    max_upload_bytes: int = 104857600
+    allowed_video_extensions: str = ".mp4,.mov,.mkv,.webm"
+    allowed_video_content_types: str = (
+        "video/mp4,video/quicktime,video/x-matroska,video/webm,application/octet-stream"
+    )
+
     storage_root: Path = Path("storage")
 
     # S3-compatible object storage (MinIO). Used when STORAGE_BACKEND=object.
@@ -52,7 +59,13 @@ class Settings(BaseSettings):
     otel_service_name: str = "video-processing-api"
     otel_exporter_otlp_endpoint: str = "http://jaeger:4317"
 
-    @field_validator("tracing_enabled", "upload_admission_control_enabled", "upload_rate_limit_enabled", mode="before")
+    @field_validator(
+        "tracing_enabled",
+        "upload_admission_control_enabled",
+        "upload_rate_limit_enabled",
+        "upload_validation_enabled",
+        mode="before",
+    )
     @classmethod
     def coerce_bool(cls, v: object) -> bool:
         if isinstance(v, bool):
@@ -93,6 +106,14 @@ class Settings(BaseSettings):
     @property
     def raw_dir(self) -> Path:
         return self.storage_root / "raw"
+
+    @property
+    def allowed_video_extensions_list(self) -> list[str]:
+        return [item.strip().lower() for item in self.allowed_video_extensions.split(",") if item.strip()]
+
+    @property
+    def allowed_video_content_types_list(self) -> list[str]:
+        return [item.strip().lower() for item in self.allowed_video_content_types.split(",") if item.strip()]
 
     @property
     def processed_dir(self) -> Path:

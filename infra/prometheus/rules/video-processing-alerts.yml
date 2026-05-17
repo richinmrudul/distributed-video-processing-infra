@@ -89,3 +89,13 @@ groups:
         annotations:
           summary: "Upload rate limit rejections detected"
           description: "One or more upload requests were rejected by the upload rate limiter in the last 5 minutes."
+
+      - alert: UploadValidationRejectionsDetected
+        expr: increase(video_upload_validation_rejections_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "Upload validation rejections detected"
+          description: "One or more upload requests were rejected by upload validation."
