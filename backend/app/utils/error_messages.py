@@ -23,6 +23,8 @@ def sanitize_error_message(exc: BaseException) -> str:
 
 def _truncate_safe(text: str) -> str:
     single = " ".join(text.split())
+    if not single:
+        return "Processing failed"
     if len(single) <= MAX_ERROR_MESSAGE_LEN:
         return single
     return single[: MAX_ERROR_MESSAGE_LEN - 3] + "..."

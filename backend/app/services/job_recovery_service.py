@@ -93,15 +93,13 @@ class JobRecoveryService:
 
     def _stuck_response(self, job: VideoJob, now: datetime) -> StuckJobResponse | None:
         if job.status == VideoJobStatus.PROCESSING:
-            if job.processing_started_at is None:
-                return None
-            age = _age_seconds(now, job.processing_started_at)
-            if age <= settings.stuck_processing_timeout_seconds:
+            age = processing_stuck_age_seconds(job, now)
+            if age is None:
                 return None
             reason = "processing_timeout"
         elif job.status == VideoJobStatus.QUEUED:
-            age = _age_seconds(now, job.updated_at)
-            if age <= settings.stuck_queued_timeout_seconds:
+            age = queued_stuck_age_seconds(job, now)
+            if age is None:
                 return None
             reason = "queued_timeout"
         else:
@@ -136,7 +134,7 @@ class JobRecoveryService:
                 span.set_attribute("recovery.outcome", outcome)
                 return outcome
 
-            if job.attempt_count >= job.max_attempts:
+            if should_fail_stuck_job(job):
                 self._mark_failed(db, job, "Job exceeded processing timeout and retry limit")
                 outcome = "failed"
                 STUCK_JOBS_RECOVERED_TOTAL.labels(original_status=original_status, outcome=outcome).inc()
@@ -192,3 +190,21 @@ def _age_seconds(now: datetime, then: datetime) -> float:
     if then.tzinfo is None:
         then = then.replace(tzinfo=timezone.utc)
     return max(0.0, (now - then).total_seconds())
+
+
+def processing_stuck_age_seconds(job: VideoJob, now: datetime) -> float | None:
+    if job.status != VideoJobStatus.PROCESSING or job.processing_started_at is None:
+        return None
+    age = _age_seconds(now, job.processing_started_at)
+    return age if age > settings.stuck_processing_timeout_seconds else None
+
+
+def queued_stuck_age_seconds(job: VideoJob, now: datetime) -> float | None:
+    if job.status != VideoJobStatus.QUEUED:
+        return None
+    age = _age_seconds(now, job.updated_at)
+    return age if age > settings.stuck_queued_timeout_seconds else None
+
+
+def should_fail_stuck_job(job: VideoJob) -> bool:
+    return job.attempt_count >= job.max_attempts

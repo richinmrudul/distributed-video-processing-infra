@@ -19,3 +19,6 @@ opentelemetry-instrumentation-fastapi==0.50b0
 opentelemetry-instrumentation-sqlalchemy==0.50b0
 opentelemetry-instrumentation-redis==0.50b0
 opentelemetry-instrumentation-requests==0.50b0
+pytest==8.3.4
+fakeredis==2.26.2
+freezegun==1.5.1
