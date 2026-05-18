@@ -90,6 +90,8 @@ services:
       MAX_UPLOAD_BYTES: "104857600"
       ALLOWED_VIDEO_EXTENSIONS: .mp4,.mov,.mkv,.webm
       ALLOWED_VIDEO_CONTENT_TYPES: video/mp4,video/quicktime,video/x-matroska,video/webm,application/octet-stream
+      UPLOAD_IDEMPOTENCY_ENABLED: "true"
+      IDEMPOTENCY_KEY_MAX_LENGTH: "128"
       STUCK_PROCESSING_TIMEOUT_SECONDS: "300"
       STUCK_QUEUED_TIMEOUT_SECONDS: "300"
       STUCK_JOB_RECOVERY_ENABLED: "true"

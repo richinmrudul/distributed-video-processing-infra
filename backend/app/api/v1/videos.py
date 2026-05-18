@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.metrics import VIDEO_UPLOAD_IDEMPOTENCY_HITS_TOTAL, VIDEO_UPLOAD_IDEMPOTENCY_REQUESTS_TOTAL
+from app.core.tracing import start_span
 from app.db.models import VideoJob, VideoJobStatus
 from app.db.session import get_db
 from app.schemas.video import VideoAssetsResponse, VideoStatusResponse, VideoUploadResponse
@@ -39,6 +41,101 @@ def _get_video_job(db: Session, video_id: str) -> VideoJob | None:
     return db.execute(select(VideoJob).where(VideoJob.id == vid)).scalar_one_or_none()
 
 
+def _record_idempotency_outcome(outcome: str) -> None:
+    VIDEO_UPLOAD_IDEMPOTENCY_REQUESTS_TOTAL.labels(outcome=outcome).inc()
+    if outcome in ("existing_key", "race_existing"):
+        VIDEO_UPLOAD_IDEMPOTENCY_HITS_TOTAL.inc()
+
+
+def _validate_idempotency_key(request: Request) -> tuple[str | None, int]:
+    raw_key = request.headers.get("Idempotency-Key")
+    if raw_key is None:
+        return None, 0
+    key = raw_key.strip()
+    key_length = len(key)
+    if not key or key_length > settings.idempotency_key_max_length:
+        _record_idempotency_outcome("invalid_key")
+        log.info(
+            "upload_idempotency_invalid_key",
+            key_length=key_length,
+            outcome="invalid_key",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_idempotency_key",
+                "message": "Idempotency-Key must be non-empty after trimming and within the configured max length.",
+                "max_length": settings.idempotency_key_max_length,
+            },
+        )
+    return key, key_length
+
+
+def _check_upload_idempotency(
+    *,
+    request: Request,
+    db: Session,
+    service: VideoService,
+) -> tuple[str | None, VideoJob | None]:
+    raw_key = request.headers.get("Idempotency-Key")
+    present = raw_key is not None
+    key_length = len(raw_key.strip()) if raw_key is not None else 0
+    with start_span(
+        "app.video",
+        "upload_idempotency_check",
+        attributes={
+            "idempotency.enabled": settings.upload_idempotency_enabled,
+            "idempotency.present": present,
+            "idempotency.key_length": key_length,
+        },
+    ) as span:
+        if not settings.upload_idempotency_enabled:
+            span.set_attribute("idempotency.outcome", "disabled")
+            _record_idempotency_outcome("disabled")
+            return None, None
+        if not present:
+            span.set_attribute("idempotency.outcome", "missing_key")
+            _record_idempotency_outcome("missing_key")
+            return None, None
+
+        try:
+            key, key_length = _validate_idempotency_key(request)
+        except HTTPException:
+            span.set_attribute("idempotency.outcome", "invalid_key")
+            raise
+        span.set_attribute("idempotency.key_length", key_length)
+        try:
+            existing = service.get_job_by_idempotency_key(db, key or "")
+        except Exception:
+            span.set_attribute("idempotency.outcome", "error")
+            _record_idempotency_outcome("error")
+            log.exception(
+                "upload_idempotency_check_failed",
+                key_length=key_length,
+                outcome="error",
+            )
+            raise
+
+        if existing is not None:
+            span.set_attribute("idempotency.outcome", "existing_key")
+            _record_idempotency_outcome("existing_key")
+            log.info(
+                "upload_idempotency_existing_job_found",
+                video_id=existing.id,
+                key_length=key_length,
+                outcome="existing_key",
+            )
+            return key, existing
+
+        span.set_attribute("idempotency.outcome", "new_key")
+        log.info(
+            "upload_idempotency_new_key",
+            key_length=key_length,
+            outcome="new_key",
+        )
+        return key, None
+
+
 @router.post(
     "/upload",
     response_model=VideoUploadResponse,
@@ -46,6 +143,7 @@ def _get_video_job(db: Session, video_id: str) -> VideoJob | None:
 )
 async def upload_video(
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     service: VideoService = Depends(get_video_service),
     rate_limiter: UploadRateLimiter = Depends(get_upload_rate_limiter),
@@ -83,6 +181,11 @@ async def upload_video(
             headers=headers,
         )
 
+    idempotency_key, existing_job = _check_upload_idempotency(request=request, db=db, service=service)
+    if existing_job is not None:
+        response.status_code = status.HTTP_200_OK
+        return VideoUploadResponse.model_validate(existing_job)
+
     decision = admission.check_upload_allowed()
     if not decision.allowed:
         http_status = (
@@ -115,7 +218,25 @@ async def upload_video(
         await file.close()
         raise _upload_validation_exception(file_validation)
 
-    job = await service.upload_and_process(db, file)
+    try:
+        upload_result = await service.upload_and_process(db, file, idempotency_key=idempotency_key)
+    except Exception:
+        if idempotency_key is not None:
+            _record_idempotency_outcome("error")
+        raise
+
+    job = upload_result.job
+    if idempotency_key is not None:
+        _record_idempotency_outcome(upload_result.idempotency_outcome)
+        if upload_result.idempotency_outcome == "race_existing":
+            await file.close()
+            log.info(
+                "upload_idempotency_race_existing_found",
+                video_id=job.id,
+                key_length=len(idempotency_key),
+                outcome="race_existing",
+            )
+            response.status_code = status.HTTP_200_OK
     if job.status == VideoJobStatus.FAILED and (job.error_message or "").startswith("enqueue_failed"):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

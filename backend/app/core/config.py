@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     allowed_video_content_types: str = (
         "video/mp4,video/quicktime,video/x-matroska,video/webm,application/octet-stream"
     )
+    upload_idempotency_enabled: bool = True
+    idempotency_key_max_length: int = 128
 
     stuck_processing_timeout_seconds: int = 300
     stuck_queued_timeout_seconds: int = 300
@@ -78,6 +80,7 @@ class Settings(BaseSettings):
         "upload_admission_control_enabled",
         "upload_rate_limit_enabled",
         "upload_validation_enabled",
+        "upload_idempotency_enabled",
         "stuck_job_recovery_enabled",
         "reconciler_enabled",
         "reconciler_oneshot",
@@ -96,6 +99,15 @@ class Settings(BaseSettings):
         if s in ("1", "true", "yes", "y", "on"):
             return True
         return True
+
+    @field_validator("idempotency_key_max_length", mode="before")
+    @classmethod
+    def coerce_idempotency_key_max_length(cls, v: object) -> int:
+        try:
+            value = int(str(v).strip())
+        except (TypeError, ValueError):
+            return 128
+        return value if value > 0 else 128
 
     @field_validator(
         "reconciler_lock_ttl_seconds",

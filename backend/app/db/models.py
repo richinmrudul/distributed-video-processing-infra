@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, Float, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Enum, Float, Index, Integer, String, Text, func, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -19,8 +19,17 @@ class VideoJobStatus(str, enum.Enum):
 
 class VideoJob(Base):
     __tablename__ = "video_jobs"
+    __table_args__ = (
+        Index(
+            "ix_video_jobs_idempotency_key_unique",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     status: Mapped[VideoJobStatus] = mapped_column(
         Enum(VideoJobStatus, name="video_job_status", native_enum=False, length=32),
         nullable=False,

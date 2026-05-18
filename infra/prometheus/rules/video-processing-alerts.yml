@@ -100,6 +100,16 @@ groups:
           summary: "Upload validation rejections detected"
           description: "One or more upload requests were rejected by upload validation."
 
+      - alert: UploadIdempotencyErrorsDetected
+        expr: increase(video_upload_idempotency_requests_total{outcome="error"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "Upload idempotency errors detected"
+          description: "One or more upload idempotency checks failed unexpectedly."
+
       - alert: StuckJobsDetected
         expr: sum(stuck_jobs_current) > 0
         for: 1m

@@ -65,6 +65,17 @@ VIDEO_UPLOAD_VALIDATION_REJECTIONS_TOTAL = Counter(
     ["reason"],
 )
 
+VIDEO_UPLOAD_IDEMPOTENCY_REQUESTS_TOTAL = Counter(
+    "video_upload_idempotency_requests_total",
+    "Upload idempotency checks",
+    ["outcome"],
+)
+
+VIDEO_UPLOAD_IDEMPOTENCY_HITS_TOTAL = Counter(
+    "video_upload_idempotency_hits_total",
+    "Upload requests that reused an existing idempotent video job",
+)
+
 UPLOAD_VALIDATION_CONTENT_LENGTH_BYTES = Gauge(
     "upload_validation_content_length_bytes",
     "Last observed upload request Content-Length in bytes",

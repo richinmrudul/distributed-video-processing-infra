@@ -9,6 +9,7 @@ class VideoUploadResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     id: str = Field(..., description="Stable identifier for this upload and job.")
+    idempotency_key: str | None = None
     status: VideoJobStatus
     original_filename: str
     raw_path: str | None = None
@@ -25,6 +26,7 @@ class VideoStatusResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
     id: str
+    idempotency_key: str | None = None
     status: VideoJobStatus
     original_filename: str
     raw_path: str | None = None
