@@ -7,6 +7,10 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      PYTHONPATH: backend:.
 
     steps:
       - name: Checkout repository
@@ -22,5 +26,12 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r backend/requirements.txt
 
+      - name: Make integration script executable
+        run: chmod +x scripts/run_integration_tests.sh
+
       - name: Run Docker-backed integration tests
         run: ./scripts/run_integration_tests.sh
+
+      - name: Clean up Docker Compose
+        if: always()
+        run: docker compose down -v

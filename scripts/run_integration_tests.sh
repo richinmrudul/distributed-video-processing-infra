@@ -6,6 +6,30 @@ cd "$ROOT_DIR"
 
 BASE_URL="${TEST_API_BASE_URL:-http://localhost:8000}"
 
+print_diagnostics() {
+  set +e
+  echo
+  echo "Docker Compose status"
+  docker compose ps
+  echo
+  echo "API logs"
+  docker compose logs api --tail=100
+  echo
+  echo "Worker logs"
+  docker compose logs worker --tail=100
+  echo
+  echo "DB logs"
+  docker compose logs db --tail=50
+  echo
+  echo "Redis logs"
+  docker compose logs redis --tail=50
+  echo
+  echo "MinIO logs"
+  docker compose logs minio --tail=50
+}
+
+trap 'echo "Integration test run failed; printing Docker diagnostics."; print_diagnostics' ERR
+
 if [[ "${SKIP_COMPOSE_UP:-0}" != "1" ]]; then
   docker compose down -v
   docker compose up --build --scale worker=3 -d
