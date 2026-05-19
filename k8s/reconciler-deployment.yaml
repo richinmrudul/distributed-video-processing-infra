@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-processing-reconciler
+  namespace: video-processing
+  labels:
+    app.kubernetes.io/name: video-processing
+    app.kubernetes.io/component: reconciler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: video-processing
+      app.kubernetes.io/component: reconciler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: video-processing
+        app.kubernetes.io/component: reconciler
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9200"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: reconciler
+          image: ghcr.io/richinmrudul/distributed-video-processing-infra-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "workers.run_reconciler"]
+          ports:
+            - name: metrics
+              containerPort: 9200
+          envFrom:
+            - configMapRef:
+                name: video-processing-config
+            - secretRef:
+                name: video-processing-secrets
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: video-processing-reconciler
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

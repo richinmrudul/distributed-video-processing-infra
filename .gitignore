@@ -11,3 +11,4 @@ venv/
 benchmark-results/*.json
 benchmark-results/*.md
 !benchmark-results/.gitkeep
+k8s/secrets.yaml

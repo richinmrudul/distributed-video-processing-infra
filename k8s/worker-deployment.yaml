@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-processing-worker
+  namespace: video-processing
+  labels:
+    app.kubernetes.io/name: video-processing
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: video-processing
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: video-processing
+        app.kubernetes.io/component: worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/richinmrudul/distributed-video-processing-infra-api:latest
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "workers.run_worker"]
+          ports:
+            - name: metrics
+              containerPort: 9100
+          envFrom:
+            - configMapRef:
+                name: video-processing-config
+            - secretRef:
+                name: video-processing-secrets
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: video-processing-worker
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
