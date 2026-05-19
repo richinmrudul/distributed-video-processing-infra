@@ -16,6 +16,10 @@ from app.services.storage_service import StorageService
 log = get_logger(__name__)
 
 
+def parse_cors_allowed_origins(value: str) -> list[str]:
+    return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging(log_level=settings.log_level, log_json=settings.log_json)
@@ -42,7 +46,7 @@ app = FastAPI(
 app.add_middleware(PrometheusMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3001", "http://127.0.0.1:3001"],
+    allow_origins=parse_cors_allowed_origins(settings.cors_allowed_origins),
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
