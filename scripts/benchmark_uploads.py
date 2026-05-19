@@ -41,6 +41,7 @@ class UploadAttempt:
     latency_seconds: float
     accepted: bool
     video_id: str | None
+    rejection_reason: str | None = None
     error: str | None = None
 
 
@@ -62,6 +63,24 @@ def percentile_95(values: list[float]) -> float | None:
 
 def status_code_counts(attempts: list[UploadAttempt]) -> dict[str, int]:
     counts = Counter(str(attempt.status_code) if attempt.status_code is not None else "error" for attempt in attempts)
+    return dict(sorted(counts.items()))
+
+
+def extract_rejection_reason(body: Any) -> str | None:
+    if not isinstance(body, dict):
+        return None
+    detail = body.get("detail")
+    if isinstance(detail, dict) and isinstance(detail.get("reason"), str):
+        return detail["reason"]
+    if isinstance(body.get("reason"), str):
+        return body["reason"]
+    if isinstance(detail, str):
+        return detail
+    return None
+
+
+def rejection_reason_counts(attempts: list[UploadAttempt]) -> dict[str, int]:
+    counts = Counter(attempt.rejection_reason or "unknown" for attempt in attempts if not attempt.accepted)
     return dict(sorted(counts.items()))
 
 
@@ -88,6 +107,7 @@ def summarize_results(
         "upload_success_count": upload_success_count,
         "upload_rejection_count": len(attempts) - upload_success_count,
         "status_code_counts": status_code_counts(attempts),
+        "rejection_reason_counts": rejection_reason_counts(attempts),
         "average_upload_latency_seconds": statistics.fmean(latencies) if latencies else None,
         "p95_upload_latency_seconds": percentile_95(latencies),
         "completed_jobs": completed_jobs,
@@ -145,10 +165,18 @@ def idempotency_key_for(index: int, mode: str, run_id: str) -> str | None:
     raise ValueError(f"unsupported idempotency mode: {mode}")
 
 
-def upload_one(base_url: str, video_path: Path, index: int, idempotency_key: str | None) -> UploadAttempt:
+def upload_one(
+    base_url: str,
+    video_path: Path,
+    index: int,
+    idempotency_key: str | None,
+    client_id: str | None,
+) -> UploadAttempt:
     headers = {}
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key
+    if client_id:
+        headers["X-Forwarded-For"] = client_id
     started = time.perf_counter()
     try:
         with video_path.open("rb") as fh:
@@ -160,9 +188,12 @@ def upload_one(base_url: str, video_path: Path, index: int, idempotency_key: str
             )
         latency = time.perf_counter() - started
         video_id = None
+        rejection_reason = None
         try:
             body = response.json()
-            video_id = body.get("id") if isinstance(body, dict) else None
+            if isinstance(body, dict):
+                video_id = body.get("id")
+                rejection_reason = extract_rejection_reason(body) if response.status_code not in (200, 201) else None
         except ValueError:
             pass
         return UploadAttempt(
@@ -171,18 +202,33 @@ def upload_one(base_url: str, video_path: Path, index: int, idempotency_key: str
             latency_seconds=latency,
             accepted=response.status_code in (200, 201),
             video_id=video_id,
+            rejection_reason=rejection_reason,
         )
     except requests.RequestException as exc:
         latency = time.perf_counter() - started
         return UploadAttempt(index=index, status_code=None, latency_seconds=latency, accepted=False, video_id=None, error=str(exc))
 
 
-def run_uploads(base_url: str, video_path: Path, uploads: int, concurrency: int, idempotency_mode: str) -> list[UploadAttempt]:
+def run_uploads(
+    base_url: str,
+    video_path: Path,
+    uploads: int,
+    concurrency: int,
+    idempotency_mode: str,
+    client_id: str | None,
+) -> list[UploadAttempt]:
     run_id = uuid.uuid4().hex[:12]
     attempts: list[UploadAttempt] = []
     with ThreadPoolExecutor(max_workers=max(1, concurrency)) as executor:
         futures = [
-            executor.submit(upload_one, base_url, video_path, index, idempotency_key_for(index, idempotency_mode, run_id))
+            executor.submit(
+                upload_one,
+                base_url,
+                video_path,
+                index,
+                idempotency_key_for(index, idempotency_mode, run_id),
+                client_id,
+            )
             for index in range(uploads)
         ]
         for future in as_completed(futures):
@@ -245,6 +291,7 @@ def print_summary(summary: dict[str, Any], metrics_snapshot: dict[str, Any]) -> 
     print(f"upload_success_count:               {summary['upload_success_count']}")
     print(f"upload_rejection_count:             {summary['upload_rejection_count']}")
     print(f"status_code_counts:                 {summary['status_code_counts']}")
+    print(f"rejection_reason_counts:            {summary['rejection_reason_counts']}")
     print(f"average_upload_latency_seconds:     {_format_optional_float(summary['average_upload_latency_seconds'])}")
     print(f"p95_upload_latency_seconds:         {_format_optional_float(summary['p95_upload_latency_seconds'])}")
     print(f"completed_jobs:                     {summary['completed_jobs']}")
@@ -280,6 +327,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--poll", action=argparse.BooleanOptionalAction, default=True, help="Poll accepted jobs until terminal state.")
     parser.add_argument("--poll-timeout", type=int, default=120, help="Per-job status polling timeout in seconds.")
     parser.add_argument("--idempotency-mode", choices=("none", "unique", "repeated"), default="none")
+    parser.add_argument("--client-id", help="Optional synthetic client identifier sent as X-Forwarded-For.")
     parser.add_argument("--admin-api-key", default="dev-admin-key", help="Admin API key for optional future checks.")
     parser.add_argument("--json-output", help="Write benchmark results JSON to this path.")
     return parser.parse_args()
@@ -293,6 +341,7 @@ def benchmark_config(args: argparse.Namespace, base_url: str) -> dict[str, Any]:
         "poll": args.poll,
         "poll_timeout": args.poll_timeout,
         "idempotency_mode": args.idempotency_mode,
+        "client_id": args.client_id,
     }
 
 
@@ -307,7 +356,7 @@ def main() -> None:
     video_path = resolve_video_path(args.video_path)
 
     started = time.perf_counter()
-    attempts = run_uploads(base_url, video_path, args.uploads, args.concurrency, args.idempotency_mode)
+    attempts = run_uploads(base_url, video_path, args.uploads, args.concurrency, args.idempotency_mode, args.client_id)
     job_results = poll_jobs(base_url, attempts, args.poll_timeout) if args.poll else []
     wall_clock_seconds = time.perf_counter() - started
 

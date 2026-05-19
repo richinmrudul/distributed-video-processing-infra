@@ -36,6 +36,7 @@ def _sample_result():
             "upload_success_count": 5,
             "upload_rejection_count": 0,
             "status_code_counts": {"201": 5},
+            "rejection_reason_counts": {},
             "average_upload_latency_seconds": 0.05,
             "p95_upload_latency_seconds": 0.09,
             "completed_jobs": 5,

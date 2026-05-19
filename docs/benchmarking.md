@@ -6,6 +6,19 @@ Use the local benchmark to pressure-test upload acceptance, queueing, and worker
 ./scripts/run_benchmark.sh
 ```
 
+Run controlled overload scenarios:
+
+```bash
+./scripts/run_overload_benchmark.sh
+```
+
+The overload benchmark validates protection behavior:
+
+- baseline uploads should be accepted and complete
+- worker outage scales workers to zero and expects `503` / `insufficient_workers`
+- rate-limit pressure sends a burst from one synthetic client and expects `429` / `rate_limited` when local defaults allow it
+- queue backlog protection can be tested manually by lowering `MAX_QUEUE_DEPTH_FOR_UPLOADS` and running a burst
+
 For a custom video and larger run:
 
 ```bash
@@ -22,3 +35,5 @@ Key fields to watch:
 - `queued_jobs_count` and `worker_count`: whether work is backing up behind available workers.
 
 An illustrative small local run might show all uploads accepted, queue depth near zero, and processing duration under a second. That is only a smoke benchmark; larger videos, fewer workers, rate limits, or slower CPUs will change the result.
+
+Generated JSON and Markdown reports are written under `benchmark-results/` and ignored by Git.
