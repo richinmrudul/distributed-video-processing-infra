@@ -7,6 +7,8 @@ cd "$ROOT_DIR"
 BASE_URL="${BASE_URL:-http://localhost:8000}"
 UPLOADS="${UPLOADS:-10}"
 CONCURRENCY="${CONCURRENCY:-3}"
+BENCHMARK_OUTPUT_DIR="${BENCHMARK_OUTPUT_DIR:-benchmark-results}"
+WRITE_BENCHMARK_REPORT="${WRITE_BENCHMARK_REPORT:-1}"
 
 if [[ "${SKIP_COMPOSE_UP:-0}" != "1" ]]; then
   docker compose up --build --scale worker=3 -d
@@ -52,7 +54,23 @@ if [[ -n "${TEST_VIDEO_PATH:-}" ]]; then
   args+=(--video-path "$TEST_VIDEO_PATH")
 fi
 
+mkdir -p "$BENCHMARK_OUTPUT_DIR"
+timestamp="$(date -u +%Y%m%d-%H%M%S)"
+json_output="${BENCHMARK_OUTPUT_DIR}/benchmark-${timestamp}.json"
+latest_json="${BENCHMARK_OUTPUT_DIR}/latest.json"
+report_output="${BENCHMARK_OUTPUT_DIR}/benchmark-${timestamp}.md"
+latest_report="${BENCHMARK_OUTPUT_DIR}/latest.md"
+
+args+=(--json-output "$json_output")
+
 "$PYTHON_BIN" "${args[@]}"
+cp "$json_output" "$latest_json"
+
+if [[ "$WRITE_BENCHMARK_REPORT" == "1" ]]; then
+  "$PYTHON_BIN" scripts/render_benchmark_report.py --input "$json_output" --output "$report_output"
+  cp "$report_output" "$latest_report"
+  echo "Benchmark report: $latest_report"
+fi
 
 echo
 echo "Dashboards:"

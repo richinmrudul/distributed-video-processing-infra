@@ -8,3 +8,6 @@ venv/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+benchmark-results/*.json
+benchmark-results/*.md
+!benchmark-results/.gitkeep

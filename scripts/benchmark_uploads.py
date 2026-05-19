@@ -15,6 +15,7 @@ import uuid
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -284,6 +285,17 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def benchmark_config(args: argparse.Namespace, base_url: str) -> dict[str, Any]:
+    return {
+        "base_url": base_url,
+        "uploads": args.uploads,
+        "concurrency": args.concurrency,
+        "poll": args.poll,
+        "poll_timeout": args.poll_timeout,
+        "idempotency_mode": args.idempotency_mode,
+    }
+
+
 def main() -> None:
     args = parse_args()
     if args.uploads < 1:
@@ -307,6 +319,8 @@ def main() -> None:
     )
     metrics_snapshot = fetch_metrics_snapshot(base_url)
     result = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "config": benchmark_config(args, base_url),
         "summary": summary,
         "attempts": [asdict(attempt) for attempt in attempts],
         "job_results": [asdict(result) for result in job_results],
