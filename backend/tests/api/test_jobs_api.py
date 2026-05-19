@@ -4,6 +4,9 @@ from app.services.job_service import JobNotFoundError, JobRetryConflictError
 from tests.api.conftest import sample_job
 
 
+ADMIN_HEADERS = {"X-Admin-API-Key": "dev-admin-key"}
+
+
 class FakeJobService:
     def __init__(self, *, failed_jobs=None, retry_result=None, retry_error: Exception | None = None) -> None:
         self.failed_jobs = failed_jobs or []
@@ -53,7 +56,7 @@ def test_failed_jobs_returns_list(client, override_db, override_job_service):
     override_db()
     override_job_service(service)
 
-    response = client.get("/api/v1/jobs/failed")
+    response = client.get("/api/v1/jobs/failed", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["count"] == 1
@@ -71,7 +74,7 @@ def test_retry_failed_job_returns_queued_response(client, override_db, override_
     override_db()
     override_job_service(FakeJobService(retry_result=queued))
 
-    response = client.post("/api/v1/jobs/failed-1/retry")
+    response = client.post("/api/v1/jobs/failed-1/retry", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["status"] == VideoJobStatus.QUEUED.value
@@ -82,7 +85,7 @@ def test_retry_missing_job_returns_404(client, override_db, override_job_service
     override_db()
     override_job_service(FakeJobService(retry_error=JobNotFoundError("missing")))
 
-    response = client.post("/api/v1/jobs/missing/retry")
+    response = client.post("/api/v1/jobs/missing/retry", headers=ADMIN_HEADERS)
 
     assert response.status_code == 404
 
@@ -91,7 +94,7 @@ def test_retry_completed_job_returns_409(client, override_db, override_job_servi
     override_db()
     override_job_service(FakeJobService(retry_error=JobRetryConflictError("Job already completed")))
 
-    response = client.post("/api/v1/jobs/video-1/retry")
+    response = client.post("/api/v1/jobs/video-1/retry", headers=ADMIN_HEADERS)
 
     assert response.status_code == 409
     assert response.json()["detail"]["error"] == "retry_not_allowed"
@@ -116,7 +119,7 @@ def test_stuck_jobs_returns_list(client, override_db, override_recovery_service)
     override_db()
     override_recovery_service(FakeRecoveryService(stuck_jobs=[stuck]))
 
-    response = client.get("/api/v1/jobs/stuck")
+    response = client.get("/api/v1/jobs/stuck", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["count"] == 1
@@ -127,7 +130,7 @@ def test_stuck_jobs_empty_returns_count_zero(client, override_db, override_recov
     override_db()
     override_recovery_service(FakeRecoveryService(stuck_jobs=[]))
 
-    response = client.get("/api/v1/jobs/stuck")
+    response = client.get("/api/v1/jobs/stuck", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["count"] == 0
@@ -146,7 +149,7 @@ def test_recover_stuck_jobs_returns_counts(client, override_db, override_recover
     override_db()
     override_recovery_service(FakeRecoveryService(recovery_result=result))
 
-    response = client.post("/api/v1/jobs/recover-stuck")
+    response = client.post("/api/v1/jobs/recover-stuck", headers=ADMIN_HEADERS)
 
     assert response.status_code == 200
     assert response.json()["inspected_count"] == 3
@@ -160,7 +163,7 @@ def test_recover_stuck_jobs_disabled_returns_409(client, override_db, override_r
     override_recovery_service(FakeRecoveryService())
     monkeypatch.setattr(jobs.settings, "stuck_job_recovery_enabled", False)
 
-    response = client.post("/api/v1/jobs/recover-stuck")
+    response = client.post("/api/v1/jobs/recover-stuck", headers=ADMIN_HEADERS)
 
     assert response.status_code == 409
     assert response.json()["detail"]["error"] == "stuck_job_recovery_disabled"

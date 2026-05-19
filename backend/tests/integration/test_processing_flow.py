@@ -10,6 +10,7 @@ from tests.integration.conftest import (
 
 
 pytestmark = pytest.mark.integration
+ADMIN_HEADERS = {"X-Admin-API-Key": "dev-admin-key"}
 
 
 def test_upload_processes_video_to_completion(base_url, valid_video_path):
@@ -64,7 +65,7 @@ def test_bad_video_reaches_failed_retry_exhausted(base_url, bad_video_path):
     assert len(final_status["error_message"]) <= 500
     assert "configuration:" not in final_status["error_message"].lower()
 
-    failed_response = requests.get(f"{base_url}/api/v1/jobs/failed", timeout=5)
+    failed_response = requests.get(f"{base_url}/api/v1/jobs/failed", headers=ADMIN_HEADERS, timeout=5)
     failed_response.raise_for_status()
     failed_ids = {item["id"] for item in failed_response.json()["jobs"]}
     assert video_id in failed_ids

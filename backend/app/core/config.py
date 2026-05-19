@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     upload_idempotency_enabled: bool = True
     idempotency_key_max_length: int = 128
 
+    admin_auth_enabled: bool = True
+    admin_api_key: str = "dev-admin-key"
+
     stuck_processing_timeout_seconds: int = 300
     stuck_queued_timeout_seconds: int = 300
     stuck_job_recovery_enabled: bool = True
@@ -81,6 +84,7 @@ class Settings(BaseSettings):
         "upload_rate_limit_enabled",
         "upload_validation_enabled",
         "upload_idempotency_enabled",
+        "admin_auth_enabled",
         "stuck_job_recovery_enabled",
         "reconciler_enabled",
         "reconciler_oneshot",

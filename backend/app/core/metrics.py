@@ -76,6 +76,12 @@ VIDEO_UPLOAD_IDEMPOTENCY_HITS_TOTAL = Counter(
     "Upload requests that reused an existing idempotent video job",
 )
 
+ADMIN_AUTH_REQUESTS_TOTAL = Counter(
+    "admin_auth_requests_total",
+    "Admin API authentication checks",
+    ["outcome"],
+)
+
 UPLOAD_VALIDATION_CONTENT_LENGTH_BYTES = Gauge(
     "upload_validation_content_length_bytes",
     "Last observed upload request Content-Length in bytes",

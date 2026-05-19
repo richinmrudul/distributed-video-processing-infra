@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.admin_auth import require_admin_api_key
 from app.core.config import settings
 from app.db.session import get_db
 from app.schemas.jobs import FailedJobItem, FailedJobsResponse, RecoveryResultResponse, StuckJobListResponse
@@ -13,7 +14,7 @@ from app.services.job_service import (
     JobService,
 )
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_admin_api_key)])
 
 
 def get_job_service() -> JobService:
@@ -36,7 +37,6 @@ def list_failed_jobs(
     return FailedJobsResponse(jobs=items, count=len(items))
 
 
-# Operational endpoint; add auth before exposing outside trusted admin/dev networks.
 @router.get("/stuck", response_model=StuckJobListResponse)
 def list_stuck_jobs(
     db: Session = Depends(get_db),
@@ -46,7 +46,6 @@ def list_stuck_jobs(
     return StuckJobListResponse(jobs=jobs, count=len(jobs))
 
 
-# Operational endpoint; add auth before exposing outside trusted admin/dev networks.
 @router.post("/recover-stuck", response_model=RecoveryResultResponse)
 def recover_stuck_jobs(
     db: Session = Depends(get_db),
