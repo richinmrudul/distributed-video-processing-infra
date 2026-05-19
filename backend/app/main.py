@@ -27,13 +27,23 @@ async def lifespan(app: FastAPI):
 
 configure_tracing(settings.otel_service_name)
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app = FastAPI(
+    title=settings.app_name,
+    lifespan=lifespan,
+    openapi_tags=[
+        {"name": "Health", "description": "Public service health checks."},
+        {"name": "Videos", "description": "Public client video upload, status, and asset endpoints."},
+        {"name": "Queue", "description": "Public queue health endpoint."},
+        {"name": "Storage", "description": "Public storage health endpoint."},
+        {"name": "Admin Jobs", "description": "Protected operator endpoints requiring X-Admin-API-Key."},
+    ],
+)
 app.add_middleware(PrometheusMiddleware)
 app.include_router(api_router, prefix="/api/v1")
 instrument_fastapi(app)
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"], summary="Get API health", description="Public endpoint. Returns API liveness.")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 

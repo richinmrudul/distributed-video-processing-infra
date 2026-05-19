@@ -140,6 +140,11 @@ def _check_upload_idempotency(
     "/upload",
     response_model=VideoUploadResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Upload video",
+    description=(
+        "Public endpoint. Accepts a video upload, applies rate limiting, optional idempotency, "
+        "admission control, and validation, then enqueues asynchronous processing."
+    ),
 )
 async def upload_video(
     request: Request,
@@ -276,7 +281,12 @@ def _upload_validation_exception(decision: UploadValidationDecision) -> HTTPExce
 
 
 # Register before /{video_id}/status so literal path segments are not shadowed by another dynamic route.
-@router.get("/{video_id}/assets", response_model=VideoAssetsResponse)
+@router.get(
+    "/{video_id}/assets",
+    response_model=VideoAssetsResponse,
+    summary="Get presigned video asset URLs",
+    description="Public endpoint. Returns presigned URLs only for completed object-storage video jobs.",
+)
 def get_video_assets(
     video_id: str,
     db: Session = Depends(get_db),
@@ -337,7 +347,12 @@ def get_video_assets(
     )
 
 
-@router.get("/{video_id}/status", response_model=VideoStatusResponse)
+@router.get(
+    "/{video_id}/status",
+    response_model=VideoStatusResponse,
+    summary="Get video job status",
+    description="Public endpoint. Returns the current status and metadata for a video job.",
+)
 def get_video_status(
     video_id: str,
     db: Session = Depends(get_db),

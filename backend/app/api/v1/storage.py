@@ -46,7 +46,13 @@ def _response(
     )
 
 
-@router.get("/health", response_model=StorageHealthResponse, status_code=status.HTTP_200_OK)
+@router.get(
+    "/health",
+    response_model=StorageHealthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get storage health",
+    description="Public endpoint. Returns object storage configuration and bucket connectivity status.",
+)
 def storage_health() -> StorageHealthResponse:
     """Never raises: always JSON 200 for ops probes (MinIO down, boto errors, bad config)."""
     try:

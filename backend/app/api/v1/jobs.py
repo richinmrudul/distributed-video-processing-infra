@@ -25,7 +25,12 @@ def get_job_recovery_service() -> JobRecoveryService:
     return JobRecoveryService()
 
 
-@router.get("/failed", response_model=FailedJobsResponse)
+@router.get(
+    "/failed",
+    response_model=FailedJobsResponse,
+    summary="List failed video jobs",
+    description="Admin endpoint. Requires the X-Admin-API-Key header.",
+)
 def list_failed_jobs(
     limit: int = Query(20, ge=1, le=100),
     retry_exhausted: bool | None = Query(None, description="Filter by retry exhaustion."),
@@ -37,7 +42,12 @@ def list_failed_jobs(
     return FailedJobsResponse(jobs=items, count=len(items))
 
 
-@router.get("/stuck", response_model=StuckJobListResponse)
+@router.get(
+    "/stuck",
+    response_model=StuckJobListResponse,
+    summary="List stuck video jobs",
+    description="Admin endpoint. Requires the X-Admin-API-Key header.",
+)
 def list_stuck_jobs(
     db: Session = Depends(get_db),
     service: JobRecoveryService = Depends(get_job_recovery_service),
@@ -46,7 +56,12 @@ def list_stuck_jobs(
     return StuckJobListResponse(jobs=jobs, count=len(jobs))
 
 
-@router.post("/recover-stuck", response_model=RecoveryResultResponse)
+@router.post(
+    "/recover-stuck",
+    response_model=RecoveryResultResponse,
+    summary="Recover stuck video jobs",
+    description="Admin endpoint. Requires the X-Admin-API-Key header.",
+)
 def recover_stuck_jobs(
     db: Session = Depends(get_db),
     service: JobRecoveryService = Depends(get_job_recovery_service),
@@ -62,7 +77,12 @@ def recover_stuck_jobs(
     return service.recover_stuck_jobs(db)
 
 
-@router.post("/{video_id}/retry", response_model=VideoStatusResponse)
+@router.post(
+    "/{video_id}/retry",
+    response_model=VideoStatusResponse,
+    summary="Retry failed video job",
+    description="Admin endpoint. Requires the X-Admin-API-Key header.",
+)
 def retry_failed_job(
     video_id: str,
     db: Session = Depends(get_db),
