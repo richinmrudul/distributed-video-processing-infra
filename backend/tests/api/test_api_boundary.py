@@ -37,3 +37,17 @@ def test_openapi_tags_clarify_public_and_admin_boundaries(client):
     assert schema["paths"]["/api/v1/jobs/failed"]["get"]["tags"] == ["Admin Jobs"]
     assert schema["paths"]["/api/v1/videos/upload"]["post"]["tags"] == ["Videos"]
     assert schema["paths"]["/health"]["get"]["tags"] == ["Health"]
+
+
+def test_cors_allows_frontend_demo_console_ports(client):
+    response = client.options(
+        "/health",
+        headers={
+            "Origin": "http://localhost:3002",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3002"
+    assert "GET" in response.headers["access-control-allow-methods"]
