@@ -8,6 +8,10 @@ venv/
 *.egg-info/
 .pytest_cache/
 .mypy_cache/
+node_modules/
+.next/
+frontend/node_modules/
+frontend/.next/
 benchmark-results/*.json
 benchmark-results/*.md
 !benchmark-results/.gitkeep

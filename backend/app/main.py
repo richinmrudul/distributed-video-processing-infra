@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
 from app.api.v1.router import api_router
@@ -39,6 +40,13 @@ app = FastAPI(
     ],
 )
 app.add_middleware(PrometheusMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3001", "http://127.0.0.1:3001"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 app.include_router(api_router, prefix="/api/v1")
 instrument_fastapi(app)
 
