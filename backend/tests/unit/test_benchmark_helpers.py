@@ -29,17 +29,39 @@ def test_status_code_counts_groups_errors_and_codes():
     attempts = [
         benchmark.UploadAttempt(0, 201, 0.1, True, "v1"),
         benchmark.UploadAttempt(1, 429, 0.2, False, None),
-        benchmark.UploadAttempt(2, None, 0.3, False, None, "connection failed"),
+        benchmark.UploadAttempt(2, None, 0.3, False, None, error="connection failed"),
         benchmark.UploadAttempt(3, 201, 0.1, True, "v2"),
     ]
 
     assert benchmark.status_code_counts(attempts) == {"201": 2, "429": 1, "error": 1}
 
 
+def test_extract_rejection_reason_from_nested_and_flat_response_bodies():
+    assert benchmark.extract_rejection_reason({"detail": {"reason": "rate_limited"}}) == "rate_limited"
+    assert benchmark.extract_rejection_reason({"reason": "queue_backlog_high"}) == "queue_backlog_high"
+    assert benchmark.extract_rejection_reason({"detail": "Admin API key required"}) == "Admin API key required"
+    assert benchmark.extract_rejection_reason({"detail": {"message": "missing"}}) is None
+
+
+def test_rejection_reason_counts_groups_rejected_attempts():
+    attempts = [
+        benchmark.UploadAttempt(0, 201, 0.1, True, "v1"),
+        benchmark.UploadAttempt(1, 429, 0.2, False, None, rejection_reason="rate_limited"),
+        benchmark.UploadAttempt(2, 503, 0.3, False, None, rejection_reason="insufficient_workers"),
+        benchmark.UploadAttempt(3, None, 0.1, False, None),
+    ]
+
+    assert benchmark.rejection_reason_counts(attempts) == {
+        "insufficient_workers": 1,
+        "rate_limited": 1,
+        "unknown": 1,
+    }
+
+
 def test_summarize_results_aggregates_upload_and_processing_outcomes():
     attempts = [
         benchmark.UploadAttempt(0, 201, 0.10, True, "v1"),
-        benchmark.UploadAttempt(1, 503, 0.20, False, None),
+        benchmark.UploadAttempt(1, 503, 0.20, False, None, rejection_reason="insufficient_workers"),
         benchmark.UploadAttempt(2, 200, 0.30, True, "v1"),
     ]
     job_results = [
@@ -59,6 +81,7 @@ def test_summarize_results_aggregates_upload_and_processing_outcomes():
     assert summary["upload_success_count"] == 2
     assert summary["upload_rejection_count"] == 1
     assert summary["status_code_counts"] == {"200": 1, "201": 1, "503": 1}
+    assert summary["rejection_reason_counts"] == {"insufficient_workers": 1}
     assert summary["completed_jobs"] == 1
     assert summary["failed_jobs"] == 1
     assert summary["timed_out_jobs"] == 1
