@@ -4,6 +4,8 @@ These manifests show how to run the API, RQ workers, and reconciler as independe
 
 Docker Compose remains the source of truth for local development.
 
+Kubernetes deployments are expected to use external Postgres, Redis, and S3-compatible object storage. See [production-notes.md](production-notes.md) for deployment mapping and [env-reference.md](env-reference.md) for environment variables.
+
 ## Apply Order
 
 ```bash
