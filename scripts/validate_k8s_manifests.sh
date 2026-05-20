@@ -15,6 +15,7 @@ if ! kubectl version --request-timeout=3s >/dev/null 2>&1; then
   echo "Rendering overlays locally with kubectl kustomize, then skipping cluster dry-run validation."
   kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/kind >/dev/null
   kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/ghcr >/dev/null
+  kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/oracle-k3s >/dev/null
   exit 0
 fi
 
@@ -27,3 +28,4 @@ kubectl apply --dry-run=client --validate=false -f k8s/worker-deployment.yaml
 kubectl apply --dry-run=client --validate=false -f k8s/reconciler-deployment.yaml
 kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/kind | kubectl apply --dry-run=client --validate=false -f -
 kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/ghcr | kubectl apply --dry-run=client --validate=false -f -
+kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/oracle-k3s | kubectl apply --dry-run=client --validate=false -f -

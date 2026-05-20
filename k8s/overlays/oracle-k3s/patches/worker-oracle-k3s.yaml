@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-processing-worker
+  namespace: video-processing
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/richinmrudul/distributed-video-processing-infra-worker:latest
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 500m
+              memory: 768Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi

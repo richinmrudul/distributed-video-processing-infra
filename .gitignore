@@ -17,3 +17,4 @@ benchmark-results/*.md
 !benchmark-results/.gitkeep
 k8s/secrets.yaml
 k8s/civo.env
+k8s/oracle-k3s.env
