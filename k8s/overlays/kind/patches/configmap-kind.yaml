@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: video-processing-config
+  namespace: video-processing
+data:
+  APP_ENV: "development"
+  STORAGE_BACKEND: "object"
+  CORS_ALLOWED_ORIGINS: "http://localhost:13001,http://127.0.0.1:13001"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317"
+  TRACING_ENABLED: "false"
+  LOG_JSON: "false"
+  MIN_AVAILABLE_WORKERS_FOR_UPLOADS: "1"
+  MAX_QUEUE_DEPTH_FOR_UPLOADS: "50"

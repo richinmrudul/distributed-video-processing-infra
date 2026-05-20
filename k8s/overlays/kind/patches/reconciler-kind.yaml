@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-processing-reconciler
+  namespace: video-processing
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: reconciler
+          image: distributed-video-processing-infra-reconciler:kind
+          imagePullPolicy: IfNotPresent

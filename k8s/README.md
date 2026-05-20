@@ -6,6 +6,8 @@ Docker Compose remains the source of truth for local development.
 
 Kubernetes deployments are expected to use external Postgres, Redis, and S3-compatible object storage. See [production-notes.md](production-notes.md) for deployment mapping and [env-reference.md](env-reference.md) for environment variables.
 
+For a local kind smoke test with dev-only in-cluster dependencies, see [local-kind.md](local-kind.md).
+
 ## Apply Order
 
 ```bash

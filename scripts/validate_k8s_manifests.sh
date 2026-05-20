@@ -12,7 +12,8 @@ fi
 
 if ! kubectl version --request-timeout=3s >/dev/null 2>&1; then
   echo "kubectl is installed, but no Kubernetes API is reachable from this environment."
-  echo "Skipping dry-run validation; inspect k8s/*.yaml or run this script with cluster access."
+  echo "Rendering the kind overlay locally with kubectl kustomize, then skipping cluster dry-run validation."
+  kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/kind >/dev/null
   exit 0
 fi
 
@@ -23,3 +24,4 @@ kubectl apply --dry-run=client --validate=false -f k8s/api-deployment.yaml
 kubectl apply --dry-run=client --validate=false -f k8s/api-service.yaml
 kubectl apply --dry-run=client --validate=false -f k8s/worker-deployment.yaml
 kubectl apply --dry-run=client --validate=false -f k8s/reconciler-deployment.yaml
+kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/kind | kubectl apply --dry-run=client --validate=false -f -

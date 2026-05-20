@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-processing-api
+  namespace: video-processing
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: api
+          image: distributed-video-processing-infra-api:kind
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - alembic -c alembic.ini upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000

@@ -1,0 +1,27 @@
+# Local kind smoke-test bucket bootstrap only.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: video-processing-minio-init
+  namespace: video-processing
+  labels:
+    app.kubernetes.io/name: video-processing
+    app.kubernetes.io/component: minio-init
+spec:
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: minio-init
+          image: minio/mc:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              until mc alias set local http://video-processing-minio:9000 minioadmin minioadmin; do
+                sleep 2
+              done
+              mc mb --ignore-existing local/raw-videos
+              mc mb --ignore-existing local/processed-videos
+              mc mb --ignore-existing local/thumbnails

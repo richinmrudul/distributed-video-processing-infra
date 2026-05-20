@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-processing-worker
+  namespace: video-processing
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: worker
+          image: distributed-video-processing-infra-worker:kind
+          imagePullPolicy: IfNotPresent
