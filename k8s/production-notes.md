@@ -35,6 +35,10 @@ Do not let multiple API pods run migrations concurrently. Keep API startup focus
 
 Real deployments should use a real secret manager, sealed secrets, or external secrets. Never commit `k8s/secrets.yaml`.
 
+Set `APP_ENV=production` and provide real values for Postgres, Redis, object storage, and `ADMIN_API_KEY`. Production config validation rejects the Docker Compose dev admin key, wildcard CORS, and obvious local development dependency URLs.
+
+Restrict `CORS_ALLOWED_ORIGINS` to the real frontend or operator-console domains. Do not expose `/api/v1/jobs/*` admin endpoints publicly without the API key and normal reverse-proxy protections.
+
 ## Observability
 
 Worker and reconciler metrics ports are exposed internally. Prometheus scrape annotations are included on those pods.

@@ -1,17 +1,25 @@
 from pathlib import Path
 
-from pydantic import ValidationInfo, field_validator
+from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_CORS_ALLOWED_ORIGINS = (
+    "http://localhost:3001,http://127.0.0.1:3001,http://localhost:3002,http://127.0.0.1:3002"
+)
+
+
+def parse_cors_allowed_origins(value: str) -> list[str]:
+    return [origin.strip() for origin in value.split(",") if origin.strip()]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "Distributed Video Processing API"
+    app_env: str = "development"
     debug: bool = False
-    cors_allowed_origins: str = (
-        "http://localhost:3001,http://127.0.0.1:3001,http://localhost:3002,http://127.0.0.1:3002"
-    )
+    cors_allowed_origins: str = DEFAULT_CORS_ALLOWED_ORIGINS
 
     database_url: str = "postgresql+psycopg2://video:video@localhost:5432/video"
 
@@ -86,6 +94,40 @@ class Settings(BaseSettings):
     tracing_enabled: bool = True
     otel_service_name: str = "video-processing-api"
     otel_exporter_otlp_endpoint: str = "http://jaeger:4317"
+
+    @model_validator(mode="after")
+    def validate_production_config(self) -> "Settings":
+        if self.app_env.strip().lower() != "production":
+            return self
+
+        errors: list[str] = []
+        if not self.admin_auth_enabled:
+            errors.append("ADMIN_AUTH_ENABLED must be true when APP_ENV=production")
+        if not self.admin_api_key.strip():
+            errors.append("ADMIN_API_KEY must be set when APP_ENV=production")
+        if self.admin_api_key.strip() == "dev-admin-key":
+            errors.append("ADMIN_API_KEY must not use the Docker Compose dev key when APP_ENV=production")
+        if "*" in parse_cors_allowed_origins(self.cors_allowed_origins):
+            errors.append("CORS_ALLOWED_ORIGINS must not contain '*' when APP_ENV=production")
+        if (
+            self.database_url == "postgresql+psycopg2://video:video@localhost:5432/video"
+            or "@localhost:" in self.database_url
+            or "@127.0.0.1:" in self.database_url
+            or "@db:5432" in self.database_url
+        ):
+            errors.append("DATABASE_URL must not point to the local development database when APP_ENV=production")
+        if self.redis_url in ("redis://redis:6379/0", "redis://localhost:6379/0", "redis://127.0.0.1:6379/0"):
+            errors.append("REDIS_URL must not use the local development Redis URL when APP_ENV=production")
+        unsafe_storage_values = {"", "minioadmin", "replace-me", "changeme", "change-me"}
+        if self.storage_backend == "object":
+            if self.object_storage_access_key.strip() in unsafe_storage_values:
+                errors.append("OBJECT_STORAGE_ACCESS_KEY must be a real production value when APP_ENV=production")
+            if self.object_storage_secret_key.strip() in unsafe_storage_values:
+                errors.append("OBJECT_STORAGE_SECRET_KEY must be a real production value when APP_ENV=production")
+
+        if errors:
+            raise ValueError("Unsafe production configuration: " + "; ".join(errors))
+        return self
 
     @field_validator(
         "tracing_enabled",
@@ -181,6 +223,10 @@ class Settings(BaseSettings):
     @property
     def allowed_video_content_types_list(self) -> list[str]:
         return [item.strip().lower() for item in self.allowed_video_content_types.split(",") if item.strip()]
+
+    @property
+    def cors_allowed_origins_list(self) -> list[str]:
+        return parse_cors_allowed_origins(self.cors_allowed_origins)
 
     @property
     def processed_dir(self) -> Path:

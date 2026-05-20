@@ -4,7 +4,9 @@ metadata:
   name: video-processing-config
   namespace: video-processing
 data:
+  APP_ENV: "production"
   STORAGE_BACKEND: "object"
+  CORS_ALLOWED_ORIGINS: "https://console.example.com"
   QUEUE_NAME: "video-processing"
   RQ_JOB_TIMEOUT_SECONDS: "600"
   UPLOAD_ADMISSION_CONTROL_ENABLED: "true"
@@ -20,6 +22,11 @@ data:
   UPLOAD_IDEMPOTENCY_ENABLED: "true"
   IDEMPOTENCY_KEY_MAX_LENGTH: "128"
   ADMIN_AUTH_ENABLED: "true"
+  CLEANUP_ENABLED: "true"
+  CLEANUP_COMPLETED_AFTER_DAYS: "7"
+  CLEANUP_FAILED_AFTER_DAYS: "14"
+  CLEANUP_DELETE_DB_ROWS: "false"
+  CLEANUP_BATCH_SIZE: "100"
   STUCK_PROCESSING_TIMEOUT_SECONDS: "300"
   STUCK_QUEUED_TIMEOUT_SECONDS: "300"
   STUCK_JOB_RECOVERY_ENABLED: "true"

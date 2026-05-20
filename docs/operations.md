@@ -2,6 +2,8 @@
 
 Administrative job operations are protected by `X-Admin-API-Key`. Docker Compose uses the dev-only key `dev-admin-key`.
 
+In production, set `APP_ENV=production`, keep `ADMIN_AUTH_ENABLED=true`, and provide a strong `ADMIN_API_KEY`. Do not expose admin endpoints publicly without the API key and normal reverse-proxy protections. The `dev-admin-key` value is only for local Docker Compose demos.
+
 ## Failed Jobs
 
 List failed jobs:

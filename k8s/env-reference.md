@@ -2,6 +2,14 @@
 
 This reference lists the important environment variables used by the application. Values marked `Secret` should come from `video-processing-secrets` or a real secret manager. Values marked `Config` can live in `video-processing-config` or workload-specific env blocks.
 
+## App / Runtime
+
+| Env var | Controls | Type | Safe dev example |
+| --- | --- | --- | --- |
+| `APP_ENV` | Runtime environment. Use `production` to enable unsafe-config validation | Config | `development` |
+| `APP_NAME` | FastAPI application title | Config | `Distributed Video Processing API` |
+| `DEBUG` | Debug mode | Config | `false` |
+
 ## Database
 
 | Env var | Controls | Type | Safe dev example |
@@ -62,6 +70,18 @@ This reference lists the important environment variables used by the application
 | `ADMIN_AUTH_ENABLED` | Enables admin API key protection for `/api/v1/jobs/*` | Config | `true` |
 | `ADMIN_API_KEY` | Admin API key expected in `X-Admin-API-Key` | Secret | `dev-admin-key` |
 
+For production, `ADMIN_API_KEY` must be a strong secret and must not be `dev-admin-key`.
+
+## Cleanup / Retention
+
+| Env var | Controls | Type | Safe dev example |
+| --- | --- | --- | --- |
+| `CLEANUP_ENABLED` | Enables admin cleanup endpoints | Config | `true` |
+| `CLEANUP_COMPLETED_AFTER_DAYS` | Completed job retention window | Config | `7` |
+| `CLEANUP_FAILED_AFTER_DAYS` | Failed retry-exhausted job retention window | Config | `14` |
+| `CLEANUP_DELETE_DB_ROWS` | Deletes DB rows after object cleanup when true | Config | `false` |
+| `CLEANUP_BATCH_SIZE` | Maximum jobs inspected/cleaned per run | Config | `100` |
+
 ## Worker / Reconciler Metrics
 
 | Env var | Controls | Type | Safe dev example |
@@ -92,6 +112,14 @@ This reference lists the important environment variables used by the application
 | `TRACING_ENABLED` | Enables OpenTelemetry tracing setup | Config | `true` |
 | `OTEL_SERVICE_NAME` | Workload-specific service name for traces | Config | `video-processing-api` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint | Config | `http://jaeger:4317` |
+
+## CORS / Frontend
+
+| Env var | Controls | Type | Safe dev example |
+| --- | --- | --- | --- |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins allowed to call the API | Config | `http://localhost:3001,http://127.0.0.1:3001` |
+
+For production, restrict CORS to the actual frontend/admin console domains. Wildcard `*` is rejected when `APP_ENV=production`.
 
 ## Logging
 
