@@ -59,3 +59,40 @@ class RecoveryResultResponse(BaseModel):
     recovered_job_ids: list[str]
     failed_job_ids: list[str]
     skipped_job_ids: list[str]
+
+
+class CleanupCandidateItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: str = Field(alias="video_id")
+    status: str
+    original_filename: str
+    raw_object_key: str | None = None
+    processed_object_key: str | None = None
+    thumbnail_object_key: str | None = None
+    age_seconds: float
+    reason: str
+
+
+class CleanupCandidatesResponse(BaseModel):
+    candidates: list[CleanupCandidateItem]
+    count: int
+
+
+class CleanupFailureItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: str = Field(alias="video_id")
+    reason: str
+
+
+class CleanupResultResponse(BaseModel):
+    dry_run: bool
+    inspected_count: int
+    candidate_count: int
+    cleaned_count: int
+    failed_count: int
+    skipped_count: int
+    candidates: list[CleanupCandidateItem]
+    cleaned_job_ids: list[str]
+    failures: list[CleanupFailureItem]

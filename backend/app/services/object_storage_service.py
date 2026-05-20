@@ -192,6 +192,27 @@ class ObjectStorageService:
             record_object_storage_operation("object_exists", bucket_name, success=False)
             raise ObjectStorageError(f"head_object failed: {exc}") from exc
 
+    def delete_object(self, bucket_name: str, object_key: str) -> None:
+        with storage_span("delete_object", bucket_name, object_key):
+            self._delete_object_impl(bucket_name, object_key)
+
+    def _delete_object_impl(self, bucket_name: str, object_key: str) -> None:
+        try:
+            self._client.delete_object(Bucket=bucket_name, Key=object_key)
+            record_object_storage_operation("delete_object", bucket_name, success=True)
+            log.info("object_storage_deleted", bucket=bucket_name, key=object_key)
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code", "")
+            if code in ("404", "NoSuchKey", "NotFound"):
+                record_object_storage_operation("delete_object", bucket_name, success=True)
+                log.info("object_storage_delete_missing_noop", bucket=bucket_name, key=object_key)
+                return
+            record_object_storage_operation("delete_object", bucket_name, success=False)
+            raise ObjectStorageError(f"delete_object failed: {exc}") from exc
+        except BotoCoreError as exc:
+            record_object_storage_operation("delete_object", bucket_name, success=False)
+            raise ObjectStorageError(f"delete_object failed: {exc}") from exc
+
     def head_object_content_length(self, bucket_name: str, object_key: str) -> int:
         try:
             r = self._client.head_object(Bucket=bucket_name, Key=object_key)

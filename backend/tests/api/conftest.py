@@ -43,6 +43,8 @@ def sample_job(**overrides):
         "processing_started_at": None,
         "processing_completed_at": None,
         "processing_duration_seconds": None,
+        "cleaned_up_at": None,
+        "cleanup_error_message": None,
         "created_at": now,
         "updated_at": now,
     }
@@ -107,5 +109,13 @@ def override_job_service():
 def override_recovery_service():
     def _override(service) -> None:
         app.dependency_overrides[jobs_api.get_job_recovery_service] = lambda: service
+
+    return _override
+
+
+@pytest.fixture
+def override_cleanup_service():
+    def _override(service) -> None:
+        app.dependency_overrides[jobs_api.get_job_cleanup_service] = lambda: service
 
     return _override

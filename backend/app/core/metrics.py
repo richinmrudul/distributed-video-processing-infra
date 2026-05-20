@@ -135,6 +135,30 @@ VIDEO_RETRY_EXHAUSTED_TOTAL = Counter(
     ["storage_backend", "error_type"],
 )
 
+VIDEO_CLEANUP_RUNS_TOTAL = Counter(
+    "video_cleanup_runs_total",
+    "Video cleanup runs",
+    ["outcome"],
+)
+
+VIDEO_CLEANUP_JOBS_TOTAL = Counter(
+    "video_cleanup_jobs_total",
+    "Video cleanup job outcomes",
+    ["outcome", "status"],
+)
+
+VIDEO_CLEANUP_OBJECTS_TOTAL = Counter(
+    "video_cleanup_objects_total",
+    "Video cleanup object deletion outcomes",
+    ["bucket", "outcome"],
+)
+
+VIDEO_CLEANUP_CANDIDATES_CURRENT = Gauge(
+    "video_cleanup_candidates_current",
+    "Current video cleanup candidates observed by cleanup endpoints",
+    ["status"],
+)
+
 # Refreshed when GET /api/v1/jobs/failed runs (API scrape only).
 FAILED_JOBS_CURRENT = Gauge(
     "failed_jobs_current",
@@ -158,6 +182,7 @@ STUCK_JOBS_RECOVERED_TOTAL = Counter(
 
 _STUCK_JOB_STATUSES = ("PROCESSING", "QUEUED")
 _STUCK_JOB_REASONS = ("processing_timeout", "queued_timeout")
+_CLEANUP_CANDIDATE_STATUSES = ("COMPLETED", "FAILED")
 
 RECONCILER_RUNS_TOTAL = Counter(
     "reconciler_runs_total",
@@ -325,6 +350,22 @@ def refresh_stuck_jobs_gauge(stuck_jobs: list) -> None:
 
     for (status, reason), count in counts.items():
         STUCK_JOBS_CURRENT.labels(status=status, stuck_reason=reason).set(count)
+
+
+def refresh_cleanup_candidates_gauge(candidates: list) -> None:
+    """Set video_cleanup_candidates_current from cleanup candidate snapshot."""
+    for status in _CLEANUP_CANDIDATE_STATUSES:
+        VIDEO_CLEANUP_CANDIDATES_CURRENT.labels(status=status).set(0)
+
+    counts: dict[str, int] = {}
+    for candidate in candidates:
+        status = getattr(candidate, "status", "")
+        if hasattr(status, "value"):
+            status = status.value
+        counts[str(status)] = counts.get(str(status), 0) + 1
+
+    for status, count in counts.items():
+        VIDEO_CLEANUP_CANDIDATES_CURRENT.labels(status=status).set(count)
 
 
 def clear_queue_gauges(queue_name: str) -> None:

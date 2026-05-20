@@ -4,8 +4,18 @@ from sqlalchemy.orm import Session
 from app.core.admin_auth import require_admin_api_key
 from app.core.config import settings
 from app.db.session import get_db
-from app.schemas.jobs import FailedJobItem, FailedJobsResponse, RecoveryResultResponse, StuckJobListResponse
+from app.schemas.jobs import (
+    CleanupCandidateItem,
+    CleanupCandidatesResponse,
+    CleanupFailureItem,
+    CleanupResultResponse,
+    FailedJobItem,
+    FailedJobsResponse,
+    RecoveryResultResponse,
+    StuckJobListResponse,
+)
 from app.schemas.video import VideoStatusResponse
+from app.services.job_cleanup_service import JobCleanupService
 from app.services.job_recovery_service import JobRecoveryService
 from app.services.job_service import (
     JobEnqueueError,
@@ -23,6 +33,10 @@ def get_job_service() -> JobService:
 
 def get_job_recovery_service() -> JobRecoveryService:
     return JobRecoveryService()
+
+
+def get_job_cleanup_service() -> JobCleanupService:
+    return JobCleanupService()
 
 
 @router.get(
@@ -75,6 +89,67 @@ def recover_stuck_jobs(
             },
         )
     return service.recover_stuck_jobs(db)
+
+
+@router.get(
+    "/cleanup-candidates",
+    response_model=CleanupCandidatesResponse,
+    summary="List cleanup candidate video jobs",
+    description="Admin endpoint. Requires the X-Admin-API-Key header. Dry-run style candidate inspection only.",
+)
+def list_cleanup_candidates(
+    status_filter: str | None = Query(None, alias="status", description="Optional COMPLETED or FAILED filter."),
+    limit: int = Query(settings.cleanup_batch_size, ge=1, le=500),
+    completed_after_days: int | None = Query(None, ge=0),
+    failed_after_days: int | None = Query(None, ge=0),
+    db: Session = Depends(get_db),
+    service: JobCleanupService = Depends(get_job_cleanup_service),
+) -> CleanupCandidatesResponse:
+    candidates = service.find_cleanup_candidates(
+        db,
+        status_filter=status_filter,
+        limit=limit,
+        completed_after_days=completed_after_days,
+        failed_after_days=failed_after_days,
+    )
+    items = [CleanupCandidateItem.model_validate(candidate) for candidate in candidates]
+    return CleanupCandidatesResponse(candidates=items, count=len(items))
+
+
+@router.post(
+    "/cleanup",
+    response_model=CleanupResultResponse,
+    summary="Clean up retained video job assets",
+    description="Admin endpoint. Requires the X-Admin-API-Key header. Defaults to dry-run mode.",
+)
+def cleanup_jobs(
+    dry_run: bool = Query(True),
+    limit: int = Query(settings.cleanup_batch_size, ge=1, le=500),
+    completed_after_days: int | None = Query(None, ge=0),
+    failed_after_days: int | None = Query(None, ge=0),
+    delete_db_rows: bool = Query(False),
+    db: Session = Depends(get_db),
+    service: JobCleanupService = Depends(get_job_cleanup_service),
+) -> CleanupResultResponse:
+    result = service.cleanup(
+        db,
+        dry_run=dry_run,
+        limit=limit,
+        completed_after_days=completed_after_days,
+        failed_after_days=failed_after_days,
+        delete_db_rows=delete_db_rows,
+    )
+    return CleanupResultResponse(
+        dry_run=result.dry_run,
+        inspected_count=result.inspected_count,
+        candidate_count=result.candidate_count,
+        cleaned_count=result.cleaned_count,
+        failed_count=result.failed_count,
+        skipped_count=result.skipped_count,
+        candidates=[CleanupCandidateItem.model_validate(candidate) for candidate in result.candidates],
+        cleaned_job_ids=result.cleaned_job_ids,
+        failures=[CleanupFailureItem.model_validate(failure) for failure in result.failures],
+    )
 
 
 @router.post(

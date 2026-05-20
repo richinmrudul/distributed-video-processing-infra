@@ -1,5 +1,6 @@
 from app.db.models import VideoJobStatus
 from app.schemas.jobs import RecoveryResultResponse, StuckJobResponse
+from app.services.job_cleanup_service import CleanupCandidate, CleanupResult
 from app.services.job_service import JobNotFoundError, JobRetryConflictError
 from tests.api.conftest import sample_job
 
@@ -42,6 +43,33 @@ class FakeRecoveryService:
 
     def recover_stuck_jobs(self, db):
         return self.recovery_result
+
+
+class FakeCleanupService:
+    def __init__(self, *, candidates=None, cleanup_result=None) -> None:
+        self.candidates = candidates or []
+        self.cleanup_result = cleanup_result
+        self.find_calls = 0
+        self.cleanup_calls = []
+
+    def find_cleanup_candidates(self, db, **kwargs):
+        self.find_calls += 1
+        self.find_kwargs = kwargs
+        return self.candidates
+
+    def cleanup(self, db, **kwargs):
+        self.cleanup_calls.append(kwargs)
+        return self.cleanup_result or CleanupResult(
+            dry_run=kwargs.get("dry_run", True),
+            inspected_count=len(self.candidates),
+            candidate_count=len(self.candidates),
+            cleaned_count=0,
+            failed_count=0,
+            skipped_count=0,
+            candidates=self.candidates,
+            cleaned_job_ids=[],
+            failures=[],
+        )
 
 
 def test_failed_jobs_returns_list(client, override_db, override_job_service):
@@ -167,3 +195,86 @@ def test_recover_stuck_jobs_disabled_returns_409(client, override_db, override_r
 
     assert response.status_code == 409
     assert response.json()["detail"]["error"] == "stuck_job_recovery_disabled"
+
+
+def test_cleanup_candidates_requires_admin_key(client):
+    response = client.get("/api/v1/jobs/cleanup-candidates")
+
+    assert response.status_code == 401
+
+
+def test_cleanup_candidates_returns_candidates_with_correct_key(client, override_db, override_cleanup_service):
+    candidate = CleanupCandidate(
+        video_id="old-1",
+        status="COMPLETED",
+        original_filename="old.mp4",
+        raw_object_key="videos/old-1/raw/old.mp4",
+        processed_object_key="videos/old-1/processed/old-1.mp4",
+        thumbnail_object_key="videos/old-1/thumbnails/old-1.jpg",
+        age_seconds=700000,
+        reason="completed_retention_expired",
+    )
+    service = FakeCleanupService(candidates=[candidate])
+    override_db()
+    override_cleanup_service(service)
+
+    response = client.get("/api/v1/jobs/cleanup-candidates", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert response.json()["candidates"][0]["video_id"] == "old-1"
+    assert service.find_calls == 1
+
+
+def test_cleanup_dry_run_returns_candidates_without_mutating(client, override_db, override_cleanup_service):
+    candidate = CleanupCandidate(
+        video_id="old-1",
+        status="FAILED",
+        original_filename="bad.mp4",
+        raw_object_key="videos/old-1/raw/bad.mp4",
+        processed_object_key=None,
+        thumbnail_object_key=None,
+        age_seconds=1400000,
+        reason="failed_retention_expired",
+    )
+    service = FakeCleanupService(candidates=[candidate])
+    override_db()
+    override_cleanup_service(service)
+
+    response = client.post("/api/v1/jobs/cleanup?dry_run=true", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["dry_run"] is True
+    assert response.json()["candidate_count"] == 1
+    assert response.json()["cleaned_count"] == 0
+    assert service.cleanup_calls[0]["dry_run"] is True
+
+
+def test_cleanup_actual_requires_correct_admin_key(client):
+    response = client.post("/api/v1/jobs/cleanup?dry_run=false", headers={"X-Admin-API-Key": "wrong"})
+
+    assert response.status_code == 403
+
+
+def test_cleanup_actual_returns_cleaned_ids(client, override_db, override_cleanup_service):
+    result = CleanupResult(
+        dry_run=False,
+        inspected_count=1,
+        candidate_count=1,
+        cleaned_count=1,
+        failed_count=0,
+        skipped_count=0,
+        candidates=[],
+        cleaned_job_ids=["old-1"],
+        failures=[],
+    )
+    service = FakeCleanupService(cleanup_result=result)
+    override_db()
+    override_cleanup_service(service)
+
+    response = client.post("/api/v1/jobs/cleanup?dry_run=false", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert response.json()["dry_run"] is False
+    assert response.json()["cleaned_job_ids"] == ["old-1"]
+    assert service.cleanup_calls[0]["dry_run"] is False

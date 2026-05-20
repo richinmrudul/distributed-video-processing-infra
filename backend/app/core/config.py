@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     admin_auth_enabled: bool = True
     admin_api_key: str = "dev-admin-key"
 
+    cleanup_enabled: bool = True
+    cleanup_completed_after_days: int = 7
+    cleanup_failed_after_days: int = 14
+    cleanup_delete_db_rows: bool = False
+    cleanup_batch_size: int = 100
+
     stuck_processing_timeout_seconds: int = 300
     stuck_queued_timeout_seconds: int = 300
     stuck_job_recovery_enabled: bool = True
@@ -88,6 +94,8 @@ class Settings(BaseSettings):
         "upload_validation_enabled",
         "upload_idempotency_enabled",
         "admin_auth_enabled",
+        "cleanup_enabled",
+        "cleanup_delete_db_rows",
         "stuck_job_recovery_enabled",
         "reconciler_enabled",
         "reconciler_oneshot",
