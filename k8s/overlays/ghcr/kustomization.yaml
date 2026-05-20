@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../namespace.yaml
+  - ../../configmap.yaml
+  - ../../api-deployment.yaml
+  - ../../api-service.yaml
+  - ../../worker-deployment.yaml
+  - ../../reconciler-deployment.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
+
+images:
+  - name: ghcr.io/richinmrudul/distributed-video-processing-infra-api
+    newName: ghcr.io/richinmrudul/distributed-video-processing-infra-api
+    newTag: latest
+  - name: ghcr.io/richinmrudul/distributed-video-processing-infra-worker
+    newName: ghcr.io/richinmrudul/distributed-video-processing-infra-worker
+    newTag: latest
+  - name: ghcr.io/richinmrudul/distributed-video-processing-infra-reconciler
+    newName: ghcr.io/richinmrudul/distributed-video-processing-infra-reconciler
+    newTag: latest
+  - name: ghcr.io/richinmrudul/distributed-video-processing-infra-frontend
+    newName: ghcr.io/richinmrudul/distributed-video-processing-infra-frontend
+    newTag: latest

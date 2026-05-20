@@ -8,6 +8,8 @@ Kubernetes deployments are expected to use external Postgres, Redis, and S3-comp
 
 For a local kind smoke test with dev-only in-cluster dependencies, see [local-kind.md](local-kind.md).
 
+For the Civo deployment plan, managed-service mapping, and cloud smoke-test preparation, see [civo-deployment.md](civo-deployment.md).
+
 Container images for Kubernetes are published to GitHub Container Registry by the `Publish Container Images` GitHub Actions workflow:
 
 - `ghcr.io/richinmrudul/distributed-video-processing-infra-api:latest`
@@ -18,6 +20,8 @@ Container images for Kubernetes are published to GitHub Container Registry by th
 The API, worker, and reconciler images currently contain the same backend application build and use different Kubernetes commands. If GHCR packages are private, configure Kubernetes `imagePullSecrets` before deploying.
 
 The frontend image bakes `NEXT_PUBLIC_API_BASE_URL` at build time. Set the GitHub Actions repository variable `FRONTEND_API_BASE_URL` before publishing a frontend image intended for a non-local API domain.
+
+The provider-neutral GHCR overlay lives in `k8s/overlays/ghcr/`. It demonstrates published image references and includes a frontend Deployment/Service, but it does not include real secrets or cloud-specific ingress resources.
 
 ## Apply Order
 
