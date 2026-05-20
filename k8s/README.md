@@ -8,6 +8,17 @@ Kubernetes deployments are expected to use external Postgres, Redis, and S3-comp
 
 For a local kind smoke test with dev-only in-cluster dependencies, see [local-kind.md](local-kind.md).
 
+Container images for Kubernetes are published to GitHub Container Registry by the `Publish Container Images` GitHub Actions workflow:
+
+- `ghcr.io/richinmrudul/distributed-video-processing-infra-api:latest`
+- `ghcr.io/richinmrudul/distributed-video-processing-infra-worker:latest`
+- `ghcr.io/richinmrudul/distributed-video-processing-infra-reconciler:latest`
+- `ghcr.io/richinmrudul/distributed-video-processing-infra-frontend:latest`
+
+The API, worker, and reconciler images currently contain the same backend application build and use different Kubernetes commands. If GHCR packages are private, configure Kubernetes `imagePullSecrets` before deploying.
+
+The frontend image bakes `NEXT_PUBLIC_API_BASE_URL` at build time. Set the GitHub Actions repository variable `FRONTEND_API_BASE_URL` before publishing a frontend image intended for a non-local API domain.
+
 ## Apply Order
 
 ```bash
@@ -52,4 +63,4 @@ The reconciler defaults to one replica. The Redis lock protects against duplicat
 - Add Ingress and TLS later.
 - Add HPA later.
 - Add Prometheus Operator `ServiceMonitor` resources later.
-- The worker and reconciler manifests use the same application image as the API and override the command.
+- The worker and reconciler images use the same backend Dockerfile as the API and override the command.

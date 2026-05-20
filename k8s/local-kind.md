@@ -67,3 +67,21 @@ k8s/overlays/kind/
 It uses local `:kind` images, `APP_ENV=development`, dev-only credentials, and CORS origins for `http://localhost:13001` and `http://127.0.0.1:13001`.
 
 Do not use the kind overlay for production.
+
+## Registry Images
+
+The kind smoke test intentionally builds local images and loads them into kind:
+
+- `distributed-video-processing-infra-api:kind`
+- `distributed-video-processing-infra-worker:kind`
+- `distributed-video-processing-infra-reconciler:kind`
+- `distributed-video-processing-infra-frontend:kind`
+
+Cloud Kubernetes deployments should use the GHCR images published by GitHub Actions instead:
+
+- `ghcr.io/richinmrudul/distributed-video-processing-infra-api:latest`
+- `ghcr.io/richinmrudul/distributed-video-processing-infra-worker:latest`
+- `ghcr.io/richinmrudul/distributed-video-processing-infra-reconciler:latest`
+- `ghcr.io/richinmrudul/distributed-video-processing-infra-frontend:latest`
+
+If GHCR packages are private, configure Kubernetes `imagePullSecrets` or make the packages public before deploying.

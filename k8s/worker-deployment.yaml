@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: ghcr.io/richinmrudul/distributed-video-processing-infra-api:latest
+          image: ghcr.io/richinmrudul/distributed-video-processing-infra-worker:latest
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "workers.run_worker"]
           ports:

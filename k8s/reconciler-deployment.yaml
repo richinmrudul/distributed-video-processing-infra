@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: reconciler
-          image: ghcr.io/richinmrudul/distributed-video-processing-infra-api:latest
+          image: ghcr.io/richinmrudul/distributed-video-processing-infra-reconciler:latest
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "workers.run_reconciler"]
           ports:
