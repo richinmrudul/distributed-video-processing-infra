@@ -407,14 +407,14 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f8fb] px-4 py-5 text-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-4">
+    <main className="min-h-screen bg-[#f6f8fb] px-4 py-4 text-slate-950 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-3">
         <ConsoleHeader currentStatus={currentStatus} queueHealth={queueHealth} storageHealth={storageHealth} />
 
         <ArchitecturePipeline status={status?.status || upload?.status || null} hasUpload={Boolean(upload)} />
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-          <div className="space-y-4">
+        <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <div className="space-y-3">
             <Panel eyebrow="Client entrypoint" title="Upload Workflow" description="Submit videos through the public FastAPI endpoint with optional idempotency protection.">
               <UploadPanel
                 file={file}
@@ -441,7 +441,7 @@ export default function Home() {
             </Panel>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <JobStatusPanel
               activeVideoId={activeVideoId}
               currentStatus={currentStatus}
@@ -474,10 +474,10 @@ export default function Home() {
         </div>
 
         <Panel eyebrow="Runtime diagnostics" title="Platform Operations" description="Operational resources and reliability controls for inspecting the deployed video-processing platform.">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
             <ReliabilityCapabilities />
             <div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-              <div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 sm:grid-cols-[8rem_minmax(0,1fr)_13rem]">
+              <div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-500 sm:grid-cols-[8rem_minmax(0,1fr)_13rem]">
                 <span>Tool</span>
                 <span>Purpose</span>
                 <span className="max-sm:hidden">Local URL</span>
@@ -489,7 +489,7 @@ export default function Home() {
                 <SystemLink label="Jaeger" href="http://localhost:16686" description="Trace distributed requests" />
                 <SystemLink label="MinIO Console" href="http://localhost:9001" description="Inspect object-storage assets" />
               </div>
-              <p className="border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">Endpoints are shown for the local or port-forwarded operations surface.</p>
+              <p className="border-t border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">Endpoints are shown for the local or port-forwarded operations surface.</p>
             </div>
           </div>
         </Panel>
@@ -503,14 +503,14 @@ function ConsoleHeader({ currentStatus, queueHealth, storageHealth }: { currentS
   const apiReachable = queueHealth !== null || storageHealth !== null;
 
   return (
-    <header className="space-y-3">
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-end lg:justify-between">
+    <header className="space-y-2.5">
+      <div className="flex flex-col gap-2.5 border-b border-slate-200 pb-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">Distributed Video Processing Console</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-600">
             Cloud media-processing control plane for uploads, queue-backed workers, object storage, and recovery operations.
           </p>
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
             <MetaItem label="Cloud" value="Azure AKS" />
             <MetaItem label="API" value="FastAPI" />
             <MetaItem label="Queue" value="Redis/RQ" />
@@ -544,8 +544,8 @@ function ArchitecturePipeline({ status, hasUpload }: { status: string | null; ha
   ];
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <section className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
+      <div className="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-sm font-medium text-slate-950">Architecture</h2>
           <p className="mt-1 text-xs text-slate-500">Browser to API, queue, worker, object storage, and asset delivery.</p>
@@ -554,12 +554,12 @@ function ArchitecturePipeline({ status, hasUpload }: { status: string | null; ha
       </div>
       <ol className="grid gap-0 overflow-hidden rounded-md border border-slate-200 md:grid-cols-3 xl:grid-cols-6">
         {steps.map((step, index) => (
-          <li key={step.label} className={`relative border-r border-slate-200 px-3 py-2 last:border-r-0 ${pipelineClass(step.state)}`}>
+          <li key={step.label} className={`relative border-r border-slate-200 px-2.5 py-1.5 last:border-r-0 ${pipelineClass(step.state)}`}>
             <div className="flex items-center gap-2">
               <span className={`h-2 w-2 rounded-full ${step.state === "done" ? "bg-emerald-500" : step.state === "current" ? "bg-blue-500" : "bg-slate-300"}`} />
               <span className="font-mono text-[11px] text-slate-500">{step.short}</span>
             </div>
-            <div className="mt-1 text-sm font-medium">{step.label}</div>
+            <div className="mt-0.5 text-xs font-medium sm:text-sm">{step.label}</div>
             {index < steps.length - 1 ? <div className="absolute right-2 top-1/2 hidden text-slate-300 xl:block">→</div> : null}
           </li>
         ))}
@@ -595,24 +595,24 @@ function UploadPanel({
   const success = Boolean(resultStatusCode && resultStatusCode >= 200 && resultStatusCode < 300);
 
   return (
-    <div className="space-y-4">
-      <form onSubmit={onSubmit} className="space-y-3">
+    <div className="space-y-3">
+      <form onSubmit={onSubmit} className="space-y-2.5">
         <label className="block">
           <span className="text-sm font-medium text-slate-700">Video file</span>
           <input
-            className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:border-slate-400"
+            className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-2.5 file:py-1 file:text-sm file:font-medium file:text-slate-700 hover:border-slate-400"
             type="file"
             accept="video/*,.mp4,.mov,.mkv,.webm"
             onChange={(event) => onFileChange(event.target.files?.[0] || null)}
           />
         </label>
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
           Selected file: <span className="font-medium text-slate-900">{file?.name || "none"}</span>
         </div>
         <label className="block">
           <span className="text-sm font-medium text-slate-700">Idempotency-Key optional</span>
           <input
-            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500"
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500"
             value={idempotencyKey}
             onChange={(event) => onIdempotencyKeyChange(event.target.value)}
             placeholder="upload-key-001"
@@ -620,7 +620,7 @@ function UploadPanel({
         </label>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            className="rounded-md bg-blue-600 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="rounded-md bg-blue-600 px-3.5 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             type="submit"
             disabled={uploading}
           >
@@ -640,8 +640,8 @@ function UploadPanel({
       </form>
 
       {upload || uploadError?.statusCode ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white">{httpStatusLabel(resultStatusCode)}</span>
               <span className={`rounded border px-2 py-1 text-xs font-medium ${success ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
@@ -650,7 +650,7 @@ function UploadPanel({
             </div>
             {upload?.status ? <StatusBadge status={upload.status} /> : null}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             <DataTile label="ID" value={upload?.id} copyValue={upload?.id} mono />
             <DataTile label="Filename" value={upload?.original_filename} />
             <DataTile label="Queue job" value={upload?.queue_job_id} copyValue={upload?.queue_job_id} mono />
@@ -659,7 +659,7 @@ function UploadPanel({
             <DataTile label="Attempts" value={upload ? `${upload.attempt_count} / ${upload.max_attempts}` : null} />
           </div>
           {uploadError ? (
-            <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="mt-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm text-rose-700">
               {uploadError.reason ? `Rejection reason: ${uploadError.reason}` : uploadError.message}
             </div>
           ) : null}
@@ -687,8 +687,8 @@ function JobStatusPanel({
   upload: UploadResponse | null;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-medium text-slate-500">Async worker state</p>
           <h2 className="mt-1 text-base font-semibold text-slate-950">Job Status</h2>
@@ -700,10 +700,10 @@ function JobStatusPanel({
         </div>
       </div>
       {activeVideoId ? (
-        <div className="mt-4 space-y-4">
+        <div className="mt-3 space-y-3">
           <StatusTimeline status={status?.status || upload?.status || null} hasUpload={Boolean(upload)} />
           {statusError ? <Notice tone="error">{statusError}</Notice> : null}
-          <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-2.5 sm:grid-cols-2 xl:grid-cols-4">
             <DataTile label="Video ID" value={activeVideoId} copyValue={activeVideoId} mono />
             <DataTile label="Attempts" value={status ? `${status.attempt_count} / ${status.max_attempts}` : "not available"} />
             <DataTile label="Processing duration" value={formatSeconds(status?.processing_duration_seconds)} />
@@ -712,7 +712,7 @@ function JobStatusPanel({
           {status?.error_message ? <Notice tone="error">{status.error_message}</Notice> : null}
         </div>
       ) : (
-        <div className="mt-5">
+        <div className="mt-3">
           <EmptyState title="Waiting for a job" text="Upload a video to start status polling and watch the worker pipeline advance." />
         </div>
       )}
@@ -722,8 +722,8 @@ function JobStatusPanel({
 
 function AssetsPanel({ assets, assetsError, status }: { assets: AssetsResponse | null; assetsError: string | null; status: StatusResponse | null }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-medium text-slate-500">Object storage output</p>
           <h2 className="mt-1 text-base font-semibold text-slate-950">Processed Assets</h2>
@@ -731,10 +731,10 @@ function AssetsPanel({ assets, assetsError, status }: { assets: AssetsResponse |
         </div>
         <span className="text-xs text-amber-700">Presigned URLs expire{assets?.expires_in_seconds ? ` after ${assets.expires_in_seconds}s` : ""}</span>
       </div>
-      {assetsError ? <div className="mt-4"><Notice tone="warning">{assetsError}</Notice></div> : null}
+      {assetsError ? <div className="mt-3"><Notice tone="warning">{assetsError}</Notice></div> : null}
       {status?.status === "COMPLETED" ? (
         assets ? (
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
             <AssetPreviewCard title="Thumbnail" url={assets.thumbnail_url} copyLabel="Thumbnail URL">
               {assets.thumbnail_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -752,12 +752,12 @@ function AssetsPanel({ assets, assetsError, status }: { assets: AssetsResponse |
             </AssetPreviewCard>
           </div>
         ) : (
-          <div className="mt-5">
+          <div className="mt-3">
             <EmptyState title="Loading asset URLs" text="The job is completed. Fetching presigned URLs from the assets endpoint." />
           </div>
         )
       ) : (
-        <div className="mt-5">
+        <div className="mt-3">
           <EmptyState title="Assets pending" text="Processed video and thumbnail previews appear here after the job reaches COMPLETED." />
         </div>
       )}
@@ -782,11 +782,11 @@ function HealthSection({
   const apiAvailable = queueHealth !== null || storageHealth !== null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-600">Refresh API, queue, worker, and object-storage readiness from public health endpoints.</p>
         <button
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+          className="rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-white disabled:cursor-wait disabled:opacity-60"
           type="button"
           onClick={() => void onRefresh()}
           disabled={healthLoading}
@@ -801,7 +801,7 @@ function HealthSection({
         <HealthMetric title="Storage" value={storageConnected === null ? "not available" : storageConnected ? "MinIO reachable" : "storage error"} detail={storageHealth?.storage_backend || "object"} state={storageConnected ? "ok" : storageConnected === false ? "bad" : "unknown"} />
         <HealthMetric title="Worker Count" value={queueHealth?.worker_count ?? "not available"} detail={`pressure: ${queueHealth?.queue_pressure_level || "not available"}`} state={queueHealth && queueHealth.worker_count > 0 ? "ok" : "unknown"} />
       </div>
-      <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+      <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-2.5 sm:grid-cols-2">
         <DataTile label="Queued jobs" value={queueHealth?.queued_jobs_count} />
         <DataTile label="Storage endpoint" value={storageHealth?.public_endpoint || storageHealth?.endpoint} mono />
         <DataTile label="Expected buckets" value={storageHealth?.expected_buckets?.join(", ") || Object.keys(storageHealth?.buckets || {}).join(", ")} />
@@ -841,18 +841,18 @@ function AdminOperations({
   onRetryJob: (videoId: string) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+    <div className="space-y-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <label className="block">
           <span className="text-sm font-medium text-slate-700">Admin API key</span>
           <input
-            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500"
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500"
             value={adminKey}
             onChange={(event) => onAdminKeyChange(event.target.value)}
             type="password"
             placeholder="dev-admin-key"
           />
-          <span className="mt-2 block text-xs text-slate-500">The admin key stays in component state and is never persisted by the browser.</span>
+          <span className="mt-1.5 block text-xs text-slate-500">The admin key stays in component state and is never persisted by the browser.</span>
         </label>
         <div className="flex flex-wrap gap-2">
           <AdminButton loading={adminLoading === "failed"} onClick={onLoadFailedJobs}>Load failed</AdminButton>
@@ -865,7 +865,7 @@ function AdminOperations({
       {adminMessage ? <Notice tone="success">{adminMessage}</Notice> : null}
 
       {recovery ? (
-        <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-4">
+        <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-2.5 sm:grid-cols-4">
           <DataTile label="Inspected" value={recovery.inspected_count} />
           <DataTile label="Recovered" value={recovery.recovered_count} />
           <DataTile label="Failed" value={recovery.failed_count} />
@@ -876,17 +876,17 @@ function AdminOperations({
       <div className="grid gap-3 xl:grid-cols-2">
         <AdminList title="Failed jobs" count={failedJobs.length}>
           {failedJobs.length ? failedJobs.map((job) => (
-            <div key={job.id} className="rounded-md border border-slate-200 bg-white p-3">
+            <div key={job.id} className="rounded-md border border-slate-200 bg-white p-2.5">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="break-all font-mono text-xs text-slate-500">{job.id}</div>
-                  <div className="mt-2 text-sm font-semibold text-slate-900">{job.original_filename}</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                  <div className="mt-1.5 text-sm font-semibold text-slate-900">{job.original_filename}</div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-600">
                     <StatusBadge status={job.status} />
                     <span>{job.last_error_type || "unknown error"}</span>
                     <span>retry exhausted: {String(job.retry_exhausted)}</span>
                   </div>
-                  <div className="mt-2 text-xs text-slate-500">{job.failed_at || "failed time unavailable"}</div>
+                  <div className="mt-1.5 text-xs text-slate-500">{job.failed_at || "failed time unavailable"}</div>
                 </div>
                 <button
                   className="shrink-0 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
@@ -903,13 +903,13 @@ function AdminOperations({
 
         <AdminList title="Stuck jobs" count={stuckJobs.length}>
           {stuckJobs.length ? stuckJobs.map((job) => (
-            <div key={job.id} className="rounded-md border border-slate-200 bg-white p-3">
+            <div key={job.id} className="rounded-md border border-slate-200 bg-white p-2.5">
               <div className="break-all font-mono text-xs text-slate-500">{job.id}</div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <StatusBadge status={job.status} />
                 <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{job.stuck_reason}</span>
               </div>
-              <div className="mt-3 text-xs text-slate-500">age: {job.age_seconds.toFixed(0)}s</div>
+              <div className="mt-2 text-xs text-slate-500">age: {job.age_seconds.toFixed(0)}s</div>
             </div>
           )) : <EmptyState title="No stuck jobs loaded" text="Load stuck jobs to inspect reconciler recovery candidates." />}
         </AdminList>
@@ -930,12 +930,12 @@ function StatusTimeline({ status, hasUpload }: { status: string | null; hasUploa
   return (
     <ol className="grid gap-0 overflow-hidden rounded-md border border-slate-200 sm:grid-cols-4">
       {steps.map((step, index) => (
-        <li key={step.label} className={`relative border-r border-slate-200 p-3 last:border-r-0 ${timelineClass(step.state, step.label)}`}>
+        <li key={step.label} className={`relative border-r border-slate-200 p-2.5 last:border-r-0 ${timelineClass(step.state, step.label)}`}>
           <div className="flex items-center justify-between gap-3">
             <span className="font-mono text-xs text-slate-500">{index + 1}</span>
             <span className="text-[11px] font-medium text-slate-500">{step.state === "current" ? "Current" : step.state === "done" ? "Done" : "Pending"}</span>
           </div>
-          <div className="mt-2 text-sm font-medium">{step.label}</div>
+          <div className="mt-1.5 text-sm font-medium">{step.label}</div>
         </li>
       ))}
     </ol>
@@ -944,8 +944,8 @@ function StatusTimeline({ status, hasUpload }: { status: string | null; hasUploa
 
 function Panel({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4">
+    <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <div className="mb-3">
         <p className="text-xs font-medium text-slate-500">{eyebrow}</p>
         <h2 className="mt-1 text-base font-semibold text-slate-950">{title}</h2>
         <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
@@ -966,12 +966,12 @@ function StatusBadge({ status, size = "sm" }: { status: string; size?: "sm" | "l
 
 function DataTile({ label, value, copyValue, mono = false }: { label: string; value: ReactNode; copyValue?: string | null; mono?: boolean }) {
   return (
-    <div className="min-w-0 rounded-md border border-slate-200 bg-white p-2.5">
+    <div className="min-w-0 rounded-md border border-slate-200 bg-white p-2">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[11px] font-medium text-slate-500">{label}</div>
         {copyValue ? <CopyButton value={copyValue} compact /> : null}
       </div>
-      <div className={`mt-2 break-words text-sm text-slate-950 ${mono ? "font-mono text-xs" : "font-medium"}`}>{valueOrFallback(value)}</div>
+      <div className={`mt-1.5 break-words text-sm text-slate-950 ${mono ? "font-mono text-xs" : "font-medium"}`}>{valueOrFallback(value)}</div>
     </div>
   );
 }
@@ -979,12 +979,12 @@ function DataTile({ label, value, copyValue, mono = false }: { label: string; va
 function HealthMetric({ title, value, detail, state }: { title: string; value: ReactNode; detail: ReactNode; state: "ok" | "bad" | "unknown" }) {
   const dot = state === "ok" ? "bg-emerald-500" : state === "bad" ? "bg-rose-500" : "bg-slate-300";
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3">
+    <div className="rounded-md border border-slate-200 bg-white p-2.5">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
         <span className={`h-2 w-2 rounded-full ${dot}`} />
       </div>
-      <div className="mt-3 text-sm font-medium text-slate-950">{valueOrFallback(value)}</div>
+      <div className="mt-2 text-sm font-medium text-slate-950">{valueOrFallback(value)}</div>
       <div className="mt-1 break-words text-xs text-slate-500">{valueOrFallback(detail)}</div>
     </div>
   );
@@ -992,27 +992,27 @@ function HealthMetric({ title, value, detail, state }: { title: string; value: R
 
 function AssetPreviewCard({ title, url, copyLabel, children }: { title: string; url: string | null; copyLabel: string; children: ReactNode }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
           <p className="mt-1 text-xs text-slate-500">{url ? "URL available" : "Waiting for URL"}</p>
         </div>
         {url ? <CopyButton value={url}>{copyLabel}</CopyButton> : null}
       </div>
-      <div className="grid min-h-52 place-items-center">{children}</div>
+      <div className="grid min-h-48 place-items-center">{children}</div>
     </div>
   );
 }
 
 function EmptyAsset({ label }: { label: string }) {
-  return <div className="grid h-44 w-full place-items-center rounded-md border border-dashed border-slate-300 bg-white text-sm text-slate-500">{label}</div>;
+  return <div className="grid h-40 w-full place-items-center rounded-md border border-dashed border-slate-300 bg-white text-sm text-slate-500">{label}</div>;
 }
 
 function AdminButton({ children, loading, onClick }: { children: ReactNode; loading: boolean; onClick: () => void }) {
   return (
     <button
-      className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:bg-slate-300"
+      className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
       onClick={onClick}
       disabled={loading}
       type="button"
@@ -1024,19 +1024,19 @@ function AdminButton({ children, loading, onClick }: { children: ReactNode; load
 
 function AdminList({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
         <span className="font-mono text-xs text-slate-500">{count}</span>
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-2">{children}</div>
     </div>
   );
 }
 
 function EmptyState({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3">
+    <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-2.5">
       <div className="text-sm font-semibold text-slate-800">{title}</div>
       <p className="mt-1 text-sm leading-6 text-slate-500">{text}</p>
     </div>
@@ -1045,7 +1045,7 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 
 function SystemLink({ label, href, description }: { label: string; href: string; description: string }) {
   return (
-    <a className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3 border-b border-slate-200 px-3 py-2.5 text-sm text-slate-700 transition last:border-b-0 hover:bg-slate-50 sm:grid-cols-[8rem_minmax(0,1fr)_13rem]" href={href} target="_blank" rel="noreferrer">
+    <a className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3 border-b border-slate-200 px-3 py-2 text-sm text-slate-700 transition last:border-b-0 hover:bg-slate-50 sm:grid-cols-[8rem_minmax(0,1fr)_13rem]" href={href} target="_blank" rel="noreferrer">
       <span>{label}</span>
       <span className="text-xs leading-5 text-slate-600">{description}</span>
       <span className="break-all font-mono text-xs text-slate-500 max-sm:col-span-2">{href}</span>
@@ -1062,12 +1062,12 @@ function MetaItem({ label, value }: { label: string; value: string }) {
 function SummaryItem({ label, value, state }: { label: string; value: ReactNode; state: "ok" | "bad" | "active" | "unknown" }) {
   const dot = state === "ok" ? "bg-emerald-500" : state === "bad" ? "bg-rose-500" : state === "active" ? "bg-blue-500" : "bg-slate-300";
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm">
+    <div className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs text-slate-500">{label}</span>
         <span className={`h-2 w-2 rounded-full ${dot}`} />
       </div>
-      <div className="mt-1 truncate text-sm font-medium text-slate-950">{valueOrFallback(value)}</div>
+      <div className="mt-0.5 truncate text-sm font-medium text-slate-950">{valueOrFallback(value)}</div>
     </div>
   );
 }
@@ -1078,7 +1078,7 @@ function Notice({ children, tone }: { children: ReactNode; tone: "error" | "warn
     warning: "border-amber-200 bg-amber-50 text-amber-800",
     success: "border-emerald-200 bg-emerald-50 text-emerald-700"
   };
-  return <div className={`rounded-md border p-3 text-sm ${classes[tone]}`}>{children}</div>;
+  return <div className={`rounded-md border p-2.5 text-sm ${classes[tone]}`}>{children}</div>;
 }
 
 function ReliabilityCapabilities() {
@@ -1092,7 +1092,7 @@ function ReliabilityCapabilities() {
   ];
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-900">Reliability Capabilities</h3>
@@ -1100,7 +1100,7 @@ function ReliabilityCapabilities() {
         </div>
         <span className="text-xs text-emerald-700">enabled</span>
       </div>
-      <div className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+      <div className="mt-2 grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
         {capabilities.map((capability) => (
           <div key={capability} className="flex items-center gap-2 text-sm text-slate-700">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
