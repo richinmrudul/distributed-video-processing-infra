@@ -473,18 +473,18 @@ export default function Home() {
           />
         </Panel>
 
-        <Panel eyebrow="Demo support" title="Observability And Scenarios" description="Open the surrounding local tools during a demo to show metrics, traces, storage, and API docs.">
+        <Panel eyebrow="Runtime diagnostics" title="Platform Operations" description="Operational resources and reliability controls for inspecting the deployed video-processing platform.">
           <div className="grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-            <DemoScenarios />
+            <ReliabilityCapabilities />
             <div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <SystemLink label="API Docs" href="http://localhost:8000/docs" />
-                <SystemLink label="Grafana" href="http://localhost:3000" />
-                <SystemLink label="Prometheus" href="http://localhost:9090" />
-                <SystemLink label="Jaeger" href="http://localhost:16686" />
-                <SystemLink label="MinIO Console" href="http://localhost:9001" />
+                <SystemLink label="API Docs" href="http://localhost:8000/docs" description="Inspect and test service contracts" />
+                <SystemLink label="Grafana" href="http://localhost:3000" description="View service dashboards" />
+                <SystemLink label="Prometheus" href="http://localhost:9090" description="Inspect metrics and targets" />
+                <SystemLink label="Jaeger" href="http://localhost:16686" description="Trace distributed requests" />
+                <SystemLink label="MinIO Console" href="http://localhost:9001" description="Inspect object-storage assets" />
               </div>
-              <p className="mt-4 text-xs text-slate-500">These links target the local/port-forward demo stack.</p>
+              <p className="mt-4 text-xs text-slate-500">Endpoints are shown for the local or port-forwarded operations surface.</p>
             </div>
           </div>
         </Panel>
@@ -1054,10 +1054,11 @@ function EmptyState({ title, text }: { title: string; text: string }) {
   );
 }
 
-function SystemLink({ label, href }: { label: string; href: string }) {
+function SystemLink({ label, href, description }: { label: string; href: string; description: string }) {
   return (
     <a className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 text-sm font-semibold text-slate-100 transition hover:border-white/20 hover:bg-slate-900" href={href} target="_blank" rel="noreferrer">
-      {label}
+      <span>{label}</span>
+      <div className="mt-2 text-xs font-medium leading-5 text-slate-400">{description}</div>
       <div className="mt-2 break-all font-mono text-xs font-normal text-slate-500">{href}</div>
     </a>
   );
@@ -1090,16 +1091,33 @@ function Notice({ children, tone }: { children: ReactNode; tone: "error" | "warn
   return <div className={`rounded-xl border p-3 text-sm ${classes[tone]}`}>{children}</div>;
 }
 
-function DemoScenarios() {
+function ReliabilityCapabilities() {
+  const capabilities = [
+    "Idempotent uploads",
+    "Retry-aware job tracking",
+    "Stuck job recovery",
+    "Cleanup policy controls",
+    "Queue pressure/admission checks",
+    "Object-storage health checks"
+  ];
+
   return (
     <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-      <h3 className="text-sm font-semibold text-slate-100">Demo scenarios</h3>
-      <ol className="mt-3 space-y-3 text-sm leading-6 text-slate-400">
-        <li><span className="font-semibold text-slate-100">Normal flow:</span> upload a valid MP4, watch status reach COMPLETED, then preview assets.</li>
-        <li><span className="font-semibold text-slate-100">Failure flow:</span> upload a fake bad.mp4 from the terminal, load failed jobs, then retry.</li>
-        <li><span className="font-semibold text-slate-100">Protection flow:</span> run the overload benchmark and observe rate limiting or admission rejection.</li>
-        <li><span className="font-semibold text-slate-100">Observability:</span> open Grafana or Jaeger after an upload to inspect metrics and traces.</li>
-      </ol>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-100">Reliability Capabilities</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-500">Controls and guardrails built into the processing platform.</p>
+        </div>
+        <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-200">enabled</span>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {capabilities.map((capability) => (
+          <div key={capability} className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/55 px-3 py-2 text-sm text-slate-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            <span>{capability}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
