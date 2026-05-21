@@ -99,10 +99,10 @@ type ApiFailure = {
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 
 const statusStyles: Record<string, string> = {
-  QUEUED: "border-slate-200 bg-slate-50 text-slate-700",
-  PROCESSING: "border-blue-200 bg-blue-50 text-blue-700",
-  COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  FAILED: "border-rose-200 bg-rose-50 text-rose-700"
+  QUEUED: "border-slate-600/60 bg-slate-800/80 text-slate-200",
+  PROCESSING: "border-blue-400/40 bg-blue-500/15 text-blue-200",
+  COMPLETED: "border-emerald-400/40 bg-emerald-500/15 text-emerald-200",
+  FAILED: "border-rose-400/40 bg-rose-500/15 text-rose-200"
 };
 
 const statusDotStyles: Record<string, string> = {
@@ -113,7 +113,7 @@ const statusDotStyles: Record<string, string> = {
 };
 
 function statusClass(status: string) {
-  return statusStyles[status] || "border-zinc-200 bg-zinc-50 text-zinc-700";
+  return statusStyles[status] || "border-slate-600/60 bg-slate-800/80 text-slate-200";
 }
 
 function statusDotClass(status: string) {
@@ -407,8 +407,8 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] px-4 py-6 text-ink sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <main className="min-h-screen bg-[#080d1a] px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-5">
         <Hero currentStatus={currentStatus} pollingActive={pollingActive} queueHealth={queueHealth} />
 
         <ArchitecturePipeline status={status?.status || upload?.status || null} hasUpload={Boolean(upload)} />
@@ -497,12 +497,12 @@ function Hero({ currentStatus, pollingActive, queueHealth }: { currentStatus: st
   const badges = ["Azure AKS", "FastAPI", "Redis/RQ", "FFmpeg Workers", "MinIO/S3", "PostgreSQL", "GHCR"];
 
   return (
-    <header className="overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
+    <header className="overflow-hidden rounded-[1.25rem] border border-white/10 bg-slate-950 shadow-2xl shadow-black/30">
+      <div className="border-b border-white/10 bg-white/[0.025] px-5 py-3 sm:px-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2">
             {badges.map((badge) => (
-              <span key={badge} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+              <span key={badge} className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-xs font-semibold text-slate-300 shadow-sm">
                 {badge}
               </span>
             ))}
@@ -513,17 +513,17 @@ function Hero({ currentStatus, pollingActive, queueHealth }: { currentStatus: st
           </div>
         </div>
       </div>
-      <div className="grid gap-8 px-5 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+      <div className="grid gap-7 bg-[radial-gradient(circle_at_15%_10%,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_88%_18%,rgba(16,185,129,0.10),transparent_30%)] px-5 py-7 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Cloud operations dashboard</p>
-          <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-200/80">Azure AKS demo | GHCR images</p>
+          <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-5xl">
             Distributed Video Processing Console
           </h1>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
+          <p className="mt-4 max-w-3xl text-base leading-7 text-slate-300">
             A cloud-deployed async media pipeline that accepts uploads, queues work in Redis/RQ, processes video with FFmpeg workers, and serves short-lived MinIO/S3 assets.
           </p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white shadow-sm">
+        <div className="rounded-2xl border border-white/10 bg-black/25 p-4 text-white shadow-xl shadow-black/20 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Current job</p>
@@ -531,13 +531,13 @@ function Hero({ currentStatus, pollingActive, queueHealth }: { currentStatus: st
                 <StatusBadge status={currentStatus} size="lg" />
               </div>
             </div>
-            <div className={`mt-1 h-3 w-3 rounded-full ${pollingActive ? "bg-emerald-400" : "bg-slate-600"}`} />
+            <div className={`mt-1 h-3 w-3 rounded-full shadow-lg ${pollingActive ? "bg-emerald-400 shadow-emerald-400/40" : "bg-slate-600 shadow-slate-700/40"}`} />
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
             <DarkMetric label="Queue pressure" value={queueHealth?.queue_pressure_level || "n/a"} />
             <DarkMetric label="Queued jobs" value={queueHealth?.queued_jobs_count ?? "n/a"} />
           </div>
-          {pollingActive ? <p className="mt-4 text-xs text-slate-400">Polling status every 2 seconds</p> : <p className="mt-4 text-xs text-slate-500">Polling starts after upload</p>}
+          {pollingActive ? <p className="mt-4 text-xs text-emerald-200/80">Polling status every 2 seconds</p> : <p className="mt-4 text-xs text-slate-500">Polling starts after upload</p>}
         </div>
       </div>
     </header>
@@ -555,23 +555,23 @@ function ArchitecturePipeline({ status, hasUpload }: { status: string | null; ha
   ];
 
   return (
-    <section className="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <section className="rounded-[1.25rem] border border-white/10 bg-slate-900/80 p-4 shadow-xl shadow-black/20">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-slate-950">Architecture Pipeline</h2>
-          <p className="mt-1 text-sm text-slate-500">The active job state lights up the distributed path from browser to generated assets.</p>
+          <h2 className="text-sm font-semibold text-white">Architecture Pipeline</h2>
+          <p className="mt-1 text-sm text-slate-400">The active job state lights up the distributed path from browser to generated assets.</p>
         </div>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">AKS port-forward demo</span>
+        <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-200">AKS port-forward demo</span>
       </div>
-      <ol className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <ol className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
         {steps.map((step, index) => (
-          <li key={step.label} className={`relative rounded-2xl border p-3 ${pipelineClass(step.state)}`}>
+          <li key={step.label} className={`relative rounded-xl border p-3 ${pipelineClass(step.state)}`}>
             <div className="flex items-center justify-between gap-3">
-              <span className="grid h-9 w-9 place-items-center rounded-xl border border-current/15 bg-white/70 text-xs font-bold">{step.short}</span>
+              <span className="grid h-8 w-8 place-items-center rounded-lg border border-current/15 bg-black/15 text-xs font-bold">{step.short}</span>
               <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{step.state}</span>
             </div>
-            <div className="mt-3 text-sm font-semibold">{step.label}</div>
-            {index < steps.length - 1 ? <div className="absolute -right-2 top-1/2 hidden h-px w-4 bg-slate-200 xl:block" /> : null}
+            <div className="mt-2 text-sm font-semibold">{step.label}</div>
+            {index < steps.length - 1 ? <div className="absolute -right-2 top-1/2 hidden h-px w-4 bg-white/15 xl:block" /> : null}
           </li>
         ))}
       </ol>
@@ -609,21 +609,21 @@ function UploadPanel({
     <div className="space-y-5">
       <form onSubmit={onSubmit} className="space-y-4">
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Video file</span>
+          <span className="text-sm font-medium text-slate-200">Video file</span>
           <input
-            className="mt-2 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm file:mr-4 file:rounded-lg file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:border-slate-300"
+            className="mt-2 block w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-sm text-slate-300 shadow-sm file:mr-4 file:rounded-lg file:border-0 file:bg-blue-500 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:border-white/20"
             type="file"
             accept="video/*,.mp4,.mov,.mkv,.webm"
             onChange={(event) => onFileChange(event.target.files?.[0] || null)}
           />
         </label>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-          Selected file: <span className="font-medium text-slate-950">{file?.name || "none"}</span>
+        <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-400">
+          Selected file: <span className="font-medium text-slate-100">{file?.name || "none"}</span>
         </div>
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Idempotency-Key optional</span>
+          <span className="text-sm font-medium text-slate-200">Idempotency-Key optional</span>
           <input
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-blue-500 transition focus:border-blue-300 focus:ring-2"
+            className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 outline-none ring-blue-500/50 transition placeholder:text-slate-600 focus:border-blue-400/60 focus:ring-2"
             value={idempotencyKey}
             onChange={(event) => onIdempotencyKeyChange(event.target.value)}
             placeholder="demo-key-123"
@@ -631,13 +631,13 @@ function UploadPanel({
         </label>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-700"
             type="submit"
             disabled={uploading}
           >
             {uploading ? "Uploading..." : "Upload video"}
           </button>
-          {uploadLatencyMs !== null ? <span className="text-sm text-slate-500">Latency {formatLatency(uploadLatencyMs)}</span> : null}
+          {uploadLatencyMs !== null ? <span className="text-sm text-slate-400">Latency {formatLatency(uploadLatencyMs)}</span> : null}
         </div>
         {uploadError ? (
           <Notice tone="error">
@@ -651,11 +651,11 @@ function UploadPanel({
       </form>
 
       {upload || uploadError?.statusCode ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-xl shadow-black/10">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">{httpStatusLabel(resultStatusCode)}</span>
-              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${success ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-950">{httpStatusLabel(resultStatusCode)}</span>
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${success ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200" : "border-rose-400/40 bg-rose-500/15 text-rose-200"}`}>
                 {uploadOutcomeLabel(resultStatusCode)}
               </span>
             </div>
@@ -670,7 +670,7 @@ function UploadPanel({
             <DataTile label="Attempts" value={upload ? `${upload.attempt_count} / ${upload.max_attempts}` : null} />
           </div>
           {uploadError ? (
-            <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="mt-4 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
               {uploadError.reason ? `Rejection reason: ${uploadError.reason}` : uploadError.message}
             </div>
           ) : null}
@@ -698,23 +698,23 @@ function JobStatusPanel({
   upload: UploadResponse | null;
 }) {
   return (
-    <section className="rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-[1.25rem] border border-white/10 bg-slate-900/80 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Async worker state</p>
-          <h2 className="mt-2 text-lg font-semibold text-slate-950">Job Status</h2>
-          <p className="mt-1 text-sm text-slate-500">Status polling follows the public job endpoint after upload.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200/70">Async worker state</p>
+          <h2 className="mt-2 text-lg font-semibold text-white">Job Status</h2>
+          <p className="mt-1 text-sm text-slate-400">Status polling follows the public job endpoint after upload.</p>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
           <StatusBadge status={currentStatus} size="lg" />
-          {pollingActive ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Polling every 2 seconds</span> : null}
+          {pollingActive ? <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-200">Polling every 2 seconds</span> : null}
         </div>
       </div>
       {activeVideoId ? (
         <div className="mt-5 space-y-5">
           <StatusTimeline status={status?.status || upload?.status || null} hasUpload={Boolean(upload)} />
           {statusError ? <Notice tone="error">{statusError}</Notice> : null}
-          <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:grid-cols-2 xl:grid-cols-4">
             <DataTile label="Video ID" value={activeVideoId} copyValue={activeVideoId} mono />
             <DataTile label="Attempts" value={status ? `${status.attempt_count} / ${status.max_attempts}` : "not available"} />
             <DataTile label="Processing duration" value={formatSeconds(status?.processing_duration_seconds)} />
@@ -733,14 +733,14 @@ function JobStatusPanel({
 
 function AssetsPanel({ assets, assetsError, status }: { assets: AssetsResponse | null; assetsError: string | null; status: StatusResponse | null }) {
   return (
-    <section className="rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-[1.25rem] border border-white/10 bg-slate-900/80 p-5 shadow-xl shadow-black/20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Object storage output</p>
-          <h2 className="mt-2 text-lg font-semibold text-slate-950">Processed Assets</h2>
-          <p className="mt-1 text-sm text-slate-500">Short-lived presigned URLs are generated after completion.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200/70">Object storage output</p>
+          <h2 className="mt-2 text-lg font-semibold text-white">Processed Assets</h2>
+          <p className="mt-1 text-sm text-slate-400">Short-lived presigned URLs are generated after completion.</p>
         </div>
-        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Short-lived presigned URLs</span>
+        <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-200">Short-lived presigned URLs</span>
       </div>
       {assetsError ? <div className="mt-4"><Notice tone="warning">{assetsError}</Notice></div> : null}
       {status?.status === "COMPLETED" ? (
@@ -749,14 +749,14 @@ function AssetsPanel({ assets, assetsError, status }: { assets: AssetsResponse |
             <AssetPreviewCard title="Thumbnail" url={assets.thumbnail_url} copyLabel="Thumbnail URL">
               {assets.thumbnail_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img className="h-full max-h-80 w-full rounded-xl border border-slate-200 bg-white object-contain" src={assets.thumbnail_url} alt="Generated thumbnail" />
+                <img className="h-full max-h-80 w-full rounded-xl border border-white/10 bg-black object-contain" src={assets.thumbnail_url} alt="Generated thumbnail" />
               ) : (
                 <EmptyAsset label="Thumbnail URL is unavailable" />
               )}
             </AssetPreviewCard>
             <AssetPreviewCard title="Processed video" url={assets.processed_url} copyLabel="Processed URL">
               {assets.processed_url ? (
-                <video className="w-full rounded-xl border border-slate-200 bg-black" src={assets.processed_url} controls />
+                <video className="w-full rounded-xl border border-white/10 bg-black shadow-2xl shadow-black/30" src={assets.processed_url} controls />
               ) : (
                 <EmptyAsset label="Processed video URL is unavailable" />
               )}
@@ -795,9 +795,9 @@ function HealthSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-500">Refresh these before a demo to prove API connectivity, Redis, worker visibility, and object storage.</p>
+        <p className="text-sm text-slate-400">Refresh these before a demo to prove API connectivity, Redis, worker visibility, and object storage.</p>
         <button
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+          className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm font-semibold text-slate-200 shadow-sm transition hover:border-white/20 hover:bg-white/[0.09] disabled:cursor-wait disabled:opacity-60"
           type="button"
           onClick={() => void onRefresh()}
           disabled={healthLoading}
@@ -812,7 +812,7 @@ function HealthSection({
         <HealthMetric title="Storage" value={storageConnected === null ? "not available" : storageConnected ? "MinIO reachable" : "storage error"} detail={storageHealth?.storage_backend || "object"} state={storageConnected ? "ok" : storageConnected === false ? "bad" : "unknown"} />
         <HealthMetric title="Worker Count" value={queueHealth?.worker_count ?? "not available"} detail={`pressure: ${queueHealth?.queue_pressure_level || "not available"}`} state={queueHealth && queueHealth.worker_count > 0 ? "ok" : "unknown"} />
       </div>
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+      <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:grid-cols-2">
         <DataTile label="Queued jobs" value={queueHealth?.queued_jobs_count} />
         <DataTile label="Storage endpoint" value={storageHealth?.public_endpoint || storageHealth?.endpoint} mono />
         <DataTile label="Expected buckets" value={storageHealth?.expected_buckets?.join(", ") || Object.keys(storageHealth?.buckets || {}).join(", ")} />
@@ -855,9 +855,9 @@ function AdminOperations({
     <div className="space-y-5">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
         <label className="block">
-          <span className="text-sm font-medium text-slate-800">Admin API key</span>
+          <span className="text-sm font-medium text-slate-200">Admin API key</span>
           <input
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-blue-500 transition focus:border-blue-300 focus:ring-2"
+            className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 outline-none ring-blue-500/50 transition placeholder:text-slate-600 focus:border-blue-400/60 focus:ring-2"
             value={adminKey}
             onChange={(event) => onAdminKeyChange(event.target.value)}
             type="password"
@@ -876,7 +876,7 @@ function AdminOperations({
       {adminMessage ? <Notice tone="success">{adminMessage}</Notice> : null}
 
       {recovery ? (
-        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4">
+        <div className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:grid-cols-4">
           <DataTile label="Inspected" value={recovery.inspected_count} />
           <DataTile label="Recovered" value={recovery.recovered_count} />
           <DataTile label="Failed" value={recovery.failed_count} />
@@ -887,12 +887,12 @@ function AdminOperations({
       <div className="grid gap-5 xl:grid-cols-2">
         <AdminList title="Failed jobs" count={failedJobs.length}>
           {failedJobs.length ? failedJobs.map((job) => (
-            <div key={job.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={job.id} className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="break-all font-mono text-xs text-slate-500">{job.id}</div>
-                  <div className="mt-2 text-sm font-semibold text-slate-950">{job.original_filename}</div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <div className="mt-2 text-sm font-semibold text-slate-100">{job.original_filename}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                     <StatusBadge status={job.status} />
                     <span>{job.last_error_type || "unknown error"}</span>
                     <span>retry exhausted: {String(job.retry_exhausted)}</span>
@@ -900,7 +900,7 @@ function AdminOperations({
                   <div className="mt-2 text-xs text-slate-500">{job.failed_at || "failed time unavailable"}</div>
                 </div>
                 <button
-                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                  className="shrink-0 rounded-lg border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 shadow-sm transition hover:border-white/20 hover:bg-white/[0.1] disabled:cursor-wait disabled:opacity-60"
                   onClick={() => onRetryJob(job.id)}
                   disabled={retryingJobId === job.id}
                   type="button"
@@ -914,11 +914,11 @@ function AdminOperations({
 
         <AdminList title="Stuck jobs" count={stuckJobs.length}>
           {stuckJobs.length ? stuckJobs.map((job) => (
-            <div key={job.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div key={job.id} className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-sm">
               <div className="break-all font-mono text-xs text-slate-500">{job.id}</div>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <StatusBadge status={job.status} />
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">{job.stuck_reason}</span>
+                <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200">{job.stuck_reason}</span>
               </div>
               <div className="mt-3 text-xs text-slate-500">age: {job.age_seconds.toFixed(0)}s</div>
             </div>
@@ -943,7 +943,7 @@ function StatusTimeline({ status, hasUpload }: { status: string | null; hasUploa
       {steps.map((step, index) => (
         <li key={step.label} className={`relative rounded-2xl border p-4 ${timelineClass(step.state, step.label)}`}>
           <div className="flex items-center justify-between gap-3">
-            <span className="grid h-7 w-7 place-items-center rounded-full border border-current/20 bg-white/70 text-xs font-bold">{index + 1}</span>
+            <span className="grid h-7 w-7 place-items-center rounded-full border border-current/20 bg-black/15 text-xs font-bold">{index + 1}</span>
             <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{step.state === "current" ? "Current" : step.state === "done" ? "Done" : "Pending"}</span>
           </div>
           <div className="mt-3 text-sm font-semibold">{step.label}</div>
@@ -955,11 +955,11 @@ function StatusTimeline({ status, hasUpload }: { status: string | null; hasUploa
 
 function Panel({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: ReactNode }) {
   return (
-    <section className="rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-[1.25rem] border border-white/10 bg-slate-900/80 p-5 shadow-xl shadow-black/20">
       <div className="mb-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
-        <h2 className="mt-2 text-lg font-semibold text-slate-950">{title}</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200/70">{eyebrow}</p>
+        <h2 className="mt-2 text-lg font-semibold text-white">{title}</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
       </div>
       {children}
     </section>
@@ -977,12 +977,12 @@ function StatusBadge({ status, size = "sm" }: { status: string; size?: "sm" | "l
 
 function DataTile({ label, value, copyValue, mono = false }: { label: string; value: ReactNode; copyValue?: string | null; mono?: boolean }) {
   return (
-    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+    <div className="min-w-0 rounded-xl border border-white/10 bg-slate-950/55 p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
         {copyValue ? <CopyButton value={copyValue} compact /> : null}
       </div>
-      <div className={`mt-2 break-words text-sm text-slate-950 ${mono ? "font-mono text-xs" : "font-medium"}`}>{valueOrFallback(value)}</div>
+      <div className={`mt-2 break-words text-sm text-slate-100 ${mono ? "font-mono text-xs" : "font-medium"}`}>{valueOrFallback(value)}</div>
     </div>
   );
 }
@@ -990,12 +990,12 @@ function DataTile({ label, value, copyValue, mono = false }: { label: string; va
 function HealthMetric({ title, value, detail, state }: { title: string; value: ReactNode; detail: ReactNode; state: "ok" | "bad" | "unknown" }) {
   const dot = state === "ok" ? "bg-emerald-500" : state === "bad" ? "bg-rose-500" : "bg-slate-300";
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+        <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
         <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
       </div>
-      <div className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{valueOrFallback(value)}</div>
+      <div className="mt-4 text-2xl font-semibold tracking-tight text-white">{valueOrFallback(value)}</div>
       <div className="mt-1 break-words text-xs text-slate-500">{valueOrFallback(detail)}</div>
     </div>
   );
@@ -1003,10 +1003,10 @@ function HealthMetric({ title, value, detail, state }: { title: string; value: R
 
 function AssetPreviewCard({ title, url, copyLabel, children }: { title: string; url: string | null; copyLabel: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+          <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
           <p className="mt-1 text-xs text-slate-500">{url ? "URL available" : "Waiting for URL"}</p>
         </div>
         {url ? <CopyButton value={url}>{copyLabel}</CopyButton> : null}
@@ -1017,13 +1017,13 @@ function AssetPreviewCard({ title, url, copyLabel, children }: { title: string; 
 }
 
 function EmptyAsset({ label }: { label: string }) {
-  return <div className="grid h-52 w-full place-items-center rounded-xl border border-dashed border-slate-300 bg-white text-sm text-slate-500">{label}</div>;
+  return <div className="grid h-52 w-full place-items-center rounded-xl border border-dashed border-white/15 bg-black/20 text-sm text-slate-500">{label}</div>;
 }
 
 function AdminButton({ children, loading, onClick }: { children: ReactNode; loading: boolean; onClick: () => void }) {
   return (
     <button
-      className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-wait disabled:bg-slate-400"
+      className="rounded-xl bg-blue-500 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-blue-950/20 transition hover:bg-blue-400 disabled:cursor-wait disabled:bg-slate-700"
       onClick={onClick}
       disabled={loading}
       type="button"
@@ -1035,10 +1035,10 @@ function AdminButton({ children, loading, onClick }: { children: ReactNode; load
 
 function AdminList({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
-        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">{count}</span>
+        <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
+        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-slate-300">{count}</span>
       </div>
       <div className="space-y-3">{children}</div>
     </div>
@@ -1047,8 +1047,8 @@ function AdminList({ title, count, children }: { title: string; count: number; c
 
 function EmptyState({ title, text }: { title: string; text: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
-      <div className="text-sm font-semibold text-slate-800">{title}</div>
+    <div className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-4">
+      <div className="text-sm font-semibold text-slate-200">{title}</div>
       <p className="mt-1 text-sm leading-6 text-slate-500">{text}</p>
     </div>
   );
@@ -1056,7 +1056,7 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 
 function SystemLink({ label, href }: { label: string; href: string }) {
   return (
-    <a className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href={href} target="_blank" rel="noreferrer">
+    <a className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 text-sm font-semibold text-slate-100 transition hover:border-white/20 hover:bg-slate-900" href={href} target="_blank" rel="noreferrer">
       {label}
       <div className="mt-2 break-all font-mono text-xs font-normal text-slate-500">{href}</div>
     </a>
@@ -1065,8 +1065,8 @@ function SystemLink({ label, href }: { label: string; href: string }) {
 
 function RuntimeChip({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-600 shadow-sm">
-      <span className="font-semibold text-slate-900">{label}</span>
+    <div className="rounded-full border border-white/10 bg-white/[0.06] px-3 py-1 text-slate-400 shadow-sm">
+      <span className="font-semibold text-slate-200">{label}</span>
       <span className="ml-2 font-mono">{valueOrFallback(value)}</span>
     </div>
   );
@@ -1083,38 +1083,38 @@ function DarkMetric({ label, value }: { label: string; value: ReactNode }) {
 
 function Notice({ children, tone }: { children: ReactNode; tone: "error" | "warning" | "success" }) {
   const classes = {
-    error: "border-rose-200 bg-rose-50 text-rose-700",
-    warning: "border-amber-200 bg-amber-50 text-amber-800",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-800"
+    error: "border-rose-400/35 bg-rose-500/10 text-rose-200",
+    warning: "border-amber-400/35 bg-amber-500/10 text-amber-200",
+    success: "border-emerald-400/35 bg-emerald-500/10 text-emerald-200"
   };
   return <div className={`rounded-xl border p-3 text-sm ${classes[tone]}`}>{children}</div>;
 }
 
 function DemoScenarios() {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <h3 className="text-sm font-semibold text-slate-950">Demo scenarios</h3>
-      <ol className="mt-3 space-y-3 text-sm leading-6 text-slate-700">
-        <li><span className="font-semibold text-slate-950">Normal flow:</span> upload a valid MP4, watch status reach COMPLETED, then preview assets.</li>
-        <li><span className="font-semibold text-slate-950">Failure flow:</span> upload a fake bad.mp4 from the terminal, load failed jobs, then retry.</li>
-        <li><span className="font-semibold text-slate-950">Protection flow:</span> run the overload benchmark and observe rate limiting or admission rejection.</li>
-        <li><span className="font-semibold text-slate-950">Observability:</span> open Grafana or Jaeger after an upload to inspect metrics and traces.</li>
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+      <h3 className="text-sm font-semibold text-slate-100">Demo scenarios</h3>
+      <ol className="mt-3 space-y-3 text-sm leading-6 text-slate-400">
+        <li><span className="font-semibold text-slate-100">Normal flow:</span> upload a valid MP4, watch status reach COMPLETED, then preview assets.</li>
+        <li><span className="font-semibold text-slate-100">Failure flow:</span> upload a fake bad.mp4 from the terminal, load failed jobs, then retry.</li>
+        <li><span className="font-semibold text-slate-100">Protection flow:</span> run the overload benchmark and observe rate limiting or admission rejection.</li>
+        <li><span className="font-semibold text-slate-100">Observability:</span> open Grafana or Jaeger after an upload to inspect metrics and traces.</li>
       </ol>
     </div>
   );
 }
 
 function pipelineClass(state: string) {
-  if (state === "current") return "border-blue-200 bg-blue-50 text-blue-800 shadow-sm";
-  if (state === "done") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  return "border-slate-200 bg-slate-50 text-slate-500";
+  if (state === "current") return "border-blue-400/40 bg-blue-500/15 text-blue-100 shadow-lg shadow-blue-950/20";
+  if (state === "done") return "border-emerald-400/35 bg-emerald-500/10 text-emerald-100";
+  return "border-white/10 bg-slate-950/55 text-slate-500";
 }
 
 function timelineClass(state: string, label: string) {
-  if (state === "current" && label === "Failed") return "border-rose-200 bg-rose-50 text-rose-800";
-  if (state === "current") return "border-blue-200 bg-blue-50 text-blue-800 shadow-sm";
-  if (state === "done") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  return "border-slate-200 bg-white text-slate-500";
+  if (state === "current" && label === "Failed") return "border-rose-400/40 bg-rose-500/15 text-rose-100";
+  if (state === "current") return "border-blue-400/40 bg-blue-500/15 text-blue-100 shadow-lg shadow-blue-950/20";
+  if (state === "done") return "border-emerald-400/35 bg-emerald-500/10 text-emerald-100";
+  return "border-white/10 bg-slate-950/55 text-slate-500";
 }
 
 function CopyButton({ value, compact = false, children }: { value: string; compact?: boolean; children?: ReactNode }) {
@@ -1132,7 +1132,7 @@ function CopyButton({ value, compact = false, children }: { value: string; compa
 
   return (
     <button
-      className={`rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${compact ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1.5 text-xs"}`}
+      className={`rounded-lg border border-white/10 bg-white/[0.06] font-semibold text-slate-200 shadow-sm transition hover:border-white/20 hover:bg-white/[0.1] ${compact ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1.5 text-xs"}`}
       type="button"
       onClick={copy}
     >
