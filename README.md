@@ -8,7 +8,7 @@ This is a demo infrastructure project designed to exercise backend, distributed 
 
 [![Distributed Video Processing Infrastructure demo](https://img.youtube.com/vi/GMABOmyEaMo/maxresdefault.jpg)](https://www.youtube.com/watch?v=GMABOmyEaMo)
 
-Watch the end-to-end Azure AKS demo: [YouTube Demo](https://www.youtube.com/watch?v=GMABOmyEaMo)
+Click the image above -> redirects to demo
 
 The demo shows:
 
