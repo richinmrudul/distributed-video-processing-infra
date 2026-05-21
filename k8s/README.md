@@ -12,6 +12,8 @@ For the Civo deployment plan, managed-service mapping, and cloud smoke-test prep
 
 For the fully-free Oracle Always Free k3s plan, see [oracle-k3s-deployment.md](oracle-k3s-deployment.md).
 
+For the Azure AKS demo overlay and port-forward workflow, see [overlays/azure-aks/README.md](overlays/azure-aks/README.md).
+
 Container images for Kubernetes are published to GitHub Container Registry by the `Publish Container Images` GitHub Actions workflow:
 
 - `ghcr.io/richinmrudul/distributed-video-processing-infra-api:latest`
@@ -26,6 +28,8 @@ The frontend image bakes `NEXT_PUBLIC_API_BASE_URL` at build time. Set the GitHu
 The provider-neutral GHCR overlay lives in `k8s/overlays/ghcr/`. It demonstrates published image references and includes a frontend Deployment/Service, but it does not include real secrets or cloud-specific ingress resources.
 
 The Oracle k3s overlay lives in `k8s/overlays/oracle-k3s/`. It includes demo Postgres, Redis, and MinIO workloads for a single Always Free VM and expects secrets generated from `k8s/oracle-k3s.env`.
+
+The Azure AKS overlay lives in `k8s/overlays/azure-aks/`. It mirrors the working browser demo setup with in-cluster Postgres, Redis, and MinIO, and keeps API/frontend access on local port-forwards.
 
 ## Apply Order
 

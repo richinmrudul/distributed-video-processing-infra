@@ -16,6 +16,7 @@ if ! kubectl version --request-timeout=3s >/dev/null 2>&1; then
   kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/kind >/dev/null
   kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/ghcr >/dev/null
   kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/oracle-k3s >/dev/null
+  kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/azure-aks >/dev/null
   exit 0
 fi
 
@@ -29,3 +30,4 @@ kubectl apply --dry-run=client --validate=false -f k8s/reconciler-deployment.yam
 kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/kind | kubectl apply --dry-run=client --validate=false -f -
 kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/ghcr | kubectl apply --dry-run=client --validate=false -f -
 kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/oracle-k3s | kubectl apply --dry-run=client --validate=false -f -
+kubectl kustomize --load-restrictor LoadRestrictionsNone k8s/overlays/azure-aks | kubectl apply --dry-run=client --validate=false -f -

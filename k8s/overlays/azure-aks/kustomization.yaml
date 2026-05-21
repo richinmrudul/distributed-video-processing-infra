@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../namespace.yaml
+  - ../../configmap.yaml
+  - ../oracle-k3s/postgres.yaml
+  - ../oracle-k3s/redis.yaml
+  - ../oracle-k3s/minio.yaml
+  - ../oracle-k3s/minio-init-job.yaml
+  - ../../api-deployment.yaml
+  - ../../api-service.yaml
+  - ../../worker-deployment.yaml
+  - ../../reconciler-deployment.yaml
+  - ../oracle-k3s/frontend-deployment.yaml
+  - ../oracle-k3s/frontend-service.yaml
+
+patches:
+  - path: patches/configmap-azure-aks.yaml
+  - path: patches/api-azure-aks.yaml
+  - path: patches/worker-azure-aks.yaml
+  - path: patches/reconciler-azure-aks.yaml
+  - path: patches/frontend-deployment-azure-aks.yaml
+  - path: patches/frontend-service-azure-aks.yaml
+
+images:
+  - name: ghcr.io/richinmrudul/distributed-video-processing-infra-api
+    newName: ghcr.io/richinmrudul/distributed-video-processing-infra-api
+    newTag: latest
+  - name: ghcr.io/richinmrudul/distributed-video-processing-infra-worker
+    newName: ghcr.io/richinmrudul/distributed-video-processing-infra-worker
+    newTag: latest
+  - name: ghcr.io/richinmrudul/distributed-video-processing-infra-reconciler
+    newName: ghcr.io/richinmrudul/distributed-video-processing-infra-reconciler
+    newTag: latest
+  - name: ghcr.io/richinmrudul/distributed-video-processing-infra-frontend
+    newName: ghcr.io/richinmrudul/distributed-video-processing-infra-frontend
+    newTag: latest
