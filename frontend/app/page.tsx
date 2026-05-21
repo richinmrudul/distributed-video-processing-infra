@@ -99,14 +99,25 @@ type ApiFailure = {
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 
 const statusStyles: Record<string, string> = {
-  QUEUED: "bg-slate-100 text-slate-700 ring-slate-200",
-  PROCESSING: "bg-sky-100 text-sky-700 ring-sky-200",
-  COMPLETED: "bg-emerald-100 text-emerald-700 ring-emerald-200",
-  FAILED: "bg-rose-100 text-rose-700 ring-rose-200"
+  QUEUED: "border-slate-200 bg-slate-50 text-slate-700",
+  PROCESSING: "border-blue-200 bg-blue-50 text-blue-700",
+  COMPLETED: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  FAILED: "border-rose-200 bg-rose-50 text-rose-700"
+};
+
+const statusDotStyles: Record<string, string> = {
+  QUEUED: "bg-slate-400",
+  PROCESSING: "bg-blue-500",
+  COMPLETED: "bg-emerald-500",
+  FAILED: "bg-rose-500"
 };
 
 function statusClass(status: string) {
-  return statusStyles[status] || "bg-zinc-100 text-zinc-700 ring-zinc-200";
+  return statusStyles[status] || "border-zinc-200 bg-zinc-50 text-zinc-700";
+}
+
+function statusDotClass(status: string) {
+  return statusDotStyles[status] || "bg-zinc-400";
 }
 
 function formatSeconds(value: number | null | undefined) {
@@ -159,28 +170,6 @@ async function readApiError(response: Response): Promise<ApiFailure> {
   } catch {
     return { message: `${response.status} ${response.statusText}`, reason: null, statusCode: response.status };
   }
-}
-
-function Section({ title, eyebrow, children }: { title: string; eyebrow?: string; children: ReactNode }) {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      {eyebrow ? <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{eyebrow}</div> : null}
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
-      <div className="mt-4">{children}</div>
-    </section>
-  );
-}
-
-function Field({ label, value, copyValue }: { label: string; value: ReactNode; copyValue?: string | null }) {
-  return (
-    <div className="min-w-0">
-      <div className="flex items-center gap-2">
-        <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-        {copyValue ? <CopyButton value={copyValue} compact /> : null}
-      </div>
-      <div className="mt-1 break-words text-sm text-slate-900">{valueOrFallback(value)}</div>
-    </div>
-  );
 }
 
 export default function Home() {
@@ -268,6 +257,7 @@ export default function Home() {
   }, [status?.id, status?.status]);
 
   const currentStatus = useMemo(() => status?.status || upload?.status || "No job", [status?.status, upload?.status]);
+  const pollingActive = Boolean(upload?.id && !terminal);
 
   async function loadHealth() {
     setHealthLoading(true);
@@ -337,7 +327,7 @@ export default function Home() {
   }
 
   async function adminFetch<T>(path: string, options: RequestInit = {}) {
-    if (!adminKey.trim()) throw new Error("Enter the local dev admin key before calling operator endpoints.");
+    if (!adminKey.trim()) throw new Error("Enter the admin key before calling operator endpoints.");
     const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers: {
@@ -417,125 +407,175 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#f5f7fb] px-4 py-6 text-ink sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Demo console</p>
-              <h1 className="mt-1 text-2xl font-semibold text-ink sm:text-3xl">Distributed Video Processing Console</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                Upload a video, watch it move through the async queue and FFmpeg workers, then use operator controls to inspect recovery paths.
-                Observability stays in Grafana, Prometheus, and Jaeger.
-              </p>
-            </div>
-            <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:min-w-96">
-              <InfoBadge label="API" value={API_BASE_URL} />
-              <InfoBadge label="Processing" value="Redis/RQ workers" />
-              <InfoBadge label="Storage" value="Object storage" />
-              <InfoBadge label="Admin" value="X-Admin-API-Key" />
-            </div>
-          </div>
-        </header>
+        <Hero currentStatus={currentStatus} pollingActive={pollingActive} queueHealth={queueHealth} />
 
-        <Section title="Public workflow" eyebrow="Client path">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-            <UploadPanel
-              file={file}
-              idempotencyKey={idempotencyKey}
-              uploading={uploading}
-              uploadError={uploadError}
-              uploadHttpStatus={uploadHttpStatus}
-              uploadLatencyMs={uploadLatencyMs}
-              upload={upload}
-              onFileChange={setFile}
-              onIdempotencyKeyChange={setIdempotencyKey}
-              onSubmit={submitUpload}
-            />
-            <div className="space-y-5">
-              <JobStatusPanel
-                activeVideoId={activeVideoId}
-                currentStatus={currentStatus}
-                terminal={terminal}
-                status={status}
-                statusError={statusError}
+        <ArchitecturePipeline status={status?.status || upload?.status || null} hasUpload={Boolean(upload)} />
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="space-y-6">
+            <Panel eyebrow="Client entrypoint" title="Public Upload Workflow" description="Submit videos through the public FastAPI endpoint with optional idempotency protection.">
+              <UploadPanel
+                file={file}
+                idempotencyKey={idempotencyKey}
+                uploading={uploading}
+                uploadError={uploadError}
+                uploadHttpStatus={uploadHttpStatus}
+                uploadLatencyMs={uploadLatencyMs}
                 upload={upload}
+                onFileChange={setFile}
+                onIdempotencyKeyChange={setIdempotencyKey}
+                onSubmit={submitUpload}
               />
-              <AssetsPanel assets={assets} assetsError={assetsError} status={status} />
-            </div>
+            </Panel>
+
+            <Panel eyebrow="Infrastructure checks" title="Public System Health" description="Small public readiness checks for queue pressure, workers, and object storage.">
+              <HealthSection
+                queueHealth={queueHealth}
+                storageHealth={storageHealth}
+                healthLoading={healthLoading}
+                healthError={healthError}
+                onRefresh={loadHealth}
+              />
+            </Panel>
           </div>
-        </Section>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <Section title="System Health" eyebrow="Public infrastructure checks">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-slate-600">Queue and storage health endpoints are public checks for local demo readiness.</p>
-              <button
-                className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
-                type="button"
-                onClick={() => void loadHealth()}
-                disabled={healthLoading}
-              >
-                {healthLoading ? "Refreshing..." : "Refresh"}
-              </button>
-            </div>
-            {healthError ? <Notice tone="error">{healthError}</Notice> : null}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              <HealthCard title="Queue">
-                <Field label="Redis connected" value={queueHealth ? String(queueHealth.redis_connected) : null} />
-                <Field label="Queue name" value={queueHealth?.queue_name} />
-                <Field label="Queued jobs" value={queueHealth?.queued_jobs_count} />
-                <Field label="Workers" value={queueHealth?.worker_count} />
-                <Field label="Pressure" value={queueHealth?.queue_pressure_level} />
-                {queueHealth?.redis_error ? <Field label="Redis error" value={queueHealth.redis_error} /> : null}
-              </HealthCard>
-              <HealthCard title="Storage">
-                <Field label="Connected" value={storageHealth?.connected !== undefined ? String(storageHealth.connected) : storageHealth?.healthy !== undefined ? String(storageHealth.healthy) : null} />
-                <Field label="Status" value={storageHealth?.status || (storageHealth?.connected ? "connected" : storageHealth?.error ? "error" : null)} />
-                <Field label="Backend" value={storageHealth?.storage_backend} />
-                <Field label="Endpoint" value={storageHealth?.public_endpoint || storageHealth?.endpoint} />
-                <Field label="Buckets" value={storageHealth?.expected_buckets?.join(", ") || Object.keys(storageHealth?.buckets || {}).join(", ")} />
-                {storageHealth?.error ? <Field label="Storage error" value={storageHealth.error} /> : null}
-              </HealthCard>
-            </div>
-          </Section>
-
-          <Section title="Operator workflow" eyebrow="Protected admin path">
-            <AdminOperations
-              adminKey={adminKey}
-              adminLoading={adminLoading}
-              retryingJobId={retryingJobId}
-              adminError={adminError}
-              adminMessage={adminMessage}
-              failedJobs={failedJobs}
-              stuckJobs={stuckJobs}
-              recovery={recovery}
-              onAdminKeyChange={setAdminKey}
-              onLoadFailedJobs={loadFailedJobs}
-              onLoadStuckJobs={loadStuckJobs}
-              onRecoverStuckJobs={recoverStuckJobs}
-              onRetryJob={retryJob}
+          <div className="space-y-6">
+            <JobStatusPanel
+              activeVideoId={activeVideoId}
+              currentStatus={currentStatus}
+              pollingActive={pollingActive}
+              status={status}
+              statusError={statusError}
+              upload={upload}
             />
-          </Section>
+
+            <AssetsPanel assets={assets} assetsError={assetsError} status={status} />
+          </div>
         </div>
 
-        <Section title="Observability" eyebrow="Local stack">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <Panel eyebrow="Protected path" title="Operator Controls" description="Admin endpoints are protected with X-Admin-API-Key and are intended for recovery and inspection.">
+          <AdminOperations
+            adminKey={adminKey}
+            adminLoading={adminLoading}
+            retryingJobId={retryingJobId}
+            adminError={adminError}
+            adminMessage={adminMessage}
+            failedJobs={failedJobs}
+            stuckJobs={stuckJobs}
+            recovery={recovery}
+            onAdminKeyChange={setAdminKey}
+            onLoadFailedJobs={loadFailedJobs}
+            onLoadStuckJobs={loadStuckJobs}
+            onRecoverStuckJobs={recoverStuckJobs}
+            onRetryJob={retryJob}
+          />
+        </Panel>
+
+        <Panel eyebrow="Demo support" title="Observability And Scenarios" description="Open the surrounding local tools during a demo to show metrics, traces, storage, and API docs.">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
             <DemoScenarios />
             <div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <SystemLink label="API Docs" href="http://localhost:8000/docs" />
                 <SystemLink label="Grafana" href="http://localhost:3000" />
                 <SystemLink label="Prometheus" href="http://localhost:9090" />
                 <SystemLink label="Jaeger" href="http://localhost:16686" />
                 <SystemLink label="MinIO Console" href="http://localhost:9001" />
               </div>
-              <p className="mt-4 text-xs text-slate-500">These links target the local Docker Compose development stack.</p>
+              <p className="mt-4 text-xs text-slate-500">These links target the local/port-forward demo stack.</p>
             </div>
           </div>
-        </Section>
+        </Panel>
       </div>
     </main>
+  );
+}
+
+function Hero({ currentStatus, pollingActive, queueHealth }: { currentStatus: string; pollingActive: boolean; queueHealth: QueueHealth | null }) {
+  const badges = ["Azure AKS", "FastAPI", "Redis/RQ", "FFmpeg Workers", "MinIO/S3", "PostgreSQL", "GHCR"];
+
+  return (
+    <header className="overflow-hidden rounded-[1.25rem] border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {badges.map((badge) => (
+              <span key={badge} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                {badge}
+              </span>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <RuntimeChip label="API" value={API_BASE_URL} />
+            <RuntimeChip label="Workers" value={queueHealth?.worker_count ?? "n/a"} />
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-8 px-5 py-8 sm:px-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-end">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Cloud operations dashboard</p>
+          <h1 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl lg:text-5xl">
+            Distributed Video Processing Console
+          </h1>
+          <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
+            A cloud-deployed async media pipeline that accepts uploads, queues work in Redis/RQ, processes video with FFmpeg workers, and serves short-lived MinIO/S3 assets.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">Current job</p>
+              <div className="mt-3">
+                <StatusBadge status={currentStatus} size="lg" />
+              </div>
+            </div>
+            <div className={`mt-1 h-3 w-3 rounded-full ${pollingActive ? "bg-emerald-400" : "bg-slate-600"}`} />
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+            <DarkMetric label="Queue pressure" value={queueHealth?.queue_pressure_level || "n/a"} />
+            <DarkMetric label="Queued jobs" value={queueHealth?.queued_jobs_count ?? "n/a"} />
+          </div>
+          {pollingActive ? <p className="mt-4 text-xs text-slate-400">Polling status every 2 seconds</p> : <p className="mt-4 text-xs text-slate-500">Polling starts after upload</p>}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function ArchitecturePipeline({ status, hasUpload }: { status: string | null; hasUpload: boolean }) {
+  const steps = [
+    { label: "Browser Upload", short: "UI", state: hasUpload ? "done" : "pending" },
+    { label: "FastAPI API", short: "API", state: hasUpload ? "done" : "pending" },
+    { label: "Redis Queue", short: "RQ", state: status === "QUEUED" ? "current" : ["PROCESSING", "COMPLETED", "FAILED"].includes(status || "") ? "done" : "pending" },
+    { label: "FFmpeg Worker", short: "CPU", state: status === "PROCESSING" ? "current" : ["COMPLETED", "FAILED"].includes(status || "") ? "done" : "pending" },
+    { label: "MinIO Storage", short: "S3", state: status === "COMPLETED" || status === "FAILED" ? "done" : "pending" },
+    { label: "Presigned Assets", short: "URL", state: status === "COMPLETED" ? "current" : "pending" }
+  ];
+
+  return (
+    <section className="rounded-[1.25rem] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-950">Architecture Pipeline</h2>
+          <p className="mt-1 text-sm text-slate-500">The active job state lights up the distributed path from browser to generated assets.</p>
+        </div>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">AKS port-forward demo</span>
+      </div>
+      <ol className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        {steps.map((step, index) => (
+          <li key={step.label} className={`relative rounded-2xl border p-3 ${pipelineClass(step.state)}`}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="grid h-9 w-9 place-items-center rounded-xl border border-current/15 bg-white/70 text-xs font-bold">{step.short}</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{step.state}</span>
+            </div>
+            <div className="mt-3 text-sm font-semibold">{step.label}</div>
+            {index < steps.length - 1 ? <div className="absolute -right-2 top-1/2 hidden h-px w-4 bg-slate-200 xl:block" /> : null}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -562,74 +602,82 @@ function UploadPanel({
   onIdempotencyKeyChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const resultStatusCode = uploadHttpStatus || uploadError?.statusCode || null;
+  const success = Boolean(resultStatusCode && resultStatusCode >= 200 && resultStatusCode < 300);
+
   return (
-    <div className="rounded-lg border border-slate-200 bg-panel p-4">
-      <h3 className="text-sm font-semibold text-slate-900">Upload video</h3>
-      <p className="mt-1 text-sm text-slate-600">New uploads return 201. Reused idempotency keys return the existing job with 200.</p>
-      <form onSubmit={onSubmit} className="mt-4 space-y-4">
+    <div className="space-y-5">
+      <form onSubmit={onSubmit} className="space-y-4">
         <label className="block">
-          <span className="text-sm font-medium text-slate-700">Video file</span>
+          <span className="text-sm font-medium text-slate-800">Video file</span>
           <input
-            className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+            className="mt-2 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm file:mr-4 file:rounded-lg file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:border-slate-300"
             type="file"
             accept="video/*,.mp4,.mov,.mkv,.webm"
             onChange={(event) => onFileChange(event.target.files?.[0] || null)}
           />
         </label>
-        <div className="rounded-md bg-white px-3 py-2 text-sm text-slate-700">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
           Selected file: <span className="font-medium text-slate-950">{file?.name || "none"}</span>
         </div>
         <label className="block">
-          <span className="text-sm font-medium text-slate-700">Idempotency-Key optional</span>
+          <span className="text-sm font-medium text-slate-800">Idempotency-Key optional</span>
           <input
-            className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-blue-500 transition focus:border-blue-300 focus:ring-2"
             value={idempotencyKey}
             onChange={(event) => onIdempotencyKeyChange(event.target.value)}
             placeholder="demo-key-123"
           />
         </label>
-        <button
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
-          type="submit"
-          disabled={uploading}
-        >
-          {uploading ? "Uploading..." : "Upload video"}
-        </button>
-        {uploadLatencyMs !== null ? <p className="text-sm text-slate-600">Upload latency: {formatLatency(uploadLatencyMs)}</p> : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            type="submit"
+            disabled={uploading}
+          >
+            {uploading ? "Uploading..." : "Upload video"}
+          </button>
+          {uploadLatencyMs !== null ? <span className="text-sm text-slate-500">Latency {formatLatency(uploadLatencyMs)}</span> : null}
+        </div>
         {uploadError ? (
           <Notice tone="error">
             <div className="font-medium">{uploadError.message}</div>
             <div className="mt-1 text-xs">
               Status code: {uploadError.statusCode || "not available"}
-              {uploadError.reason ? ` · reason: ${uploadError.reason}` : null}
+              {uploadError.reason ? ` | reason: ${uploadError.reason}` : null}
             </div>
           </Notice>
         ) : null}
       </form>
 
       {upload || uploadError?.statusCode ? (
-        <div className="mt-5 rounded-md bg-white p-4">
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <span className="rounded-full bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white">{httpStatusLabel(uploadHttpStatus || uploadError?.statusCode || null)}</span>
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${uploadHttpStatus && uploadHttpStatus >= 200 && uploadHttpStatus < 300 ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-rose-200"}`}>
-              {uploadOutcomeLabel(uploadHttpStatus || uploadError?.statusCode || null)}
-            </span>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">{httpStatusLabel(resultStatusCode)}</span>
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${success ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                {uploadOutcomeLabel(resultStatusCode)}
+              </span>
+            </div>
+            {upload?.status ? <StatusBadge status={upload.status} /> : null}
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="ID" value={upload?.id} copyValue={upload?.id} />
-            <Field label="Job status" value={upload ? <StatusPill status={upload.status} /> : "not available"} />
-            <Field label="Filename" value={upload?.original_filename} />
-            <Field label="Queue job" value={upload?.queue_job_id} copyValue={upload?.queue_job_id} />
-            <Field label="Storage" value={upload?.storage_backend} />
-            <Field label="Idempotency key" value={upload?.idempotency_key} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DataTile label="ID" value={upload?.id} copyValue={upload?.id} mono />
+            <DataTile label="Filename" value={upload?.original_filename} />
+            <DataTile label="Queue job" value={upload?.queue_job_id} copyValue={upload?.queue_job_id} mono />
+            <DataTile label="Storage backend" value={upload?.storage_backend} />
+            <DataTile label="Idempotency key" value={upload?.idempotency_key} mono />
+            <DataTile label="Attempts" value={upload ? `${upload.attempt_count} / ${upload.max_attempts}` : null} />
           </div>
           {uploadError ? (
-            <div className="mt-4 text-sm text-rose-700">
+            <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {uploadError.reason ? `Rejection reason: ${uploadError.reason}` : uploadError.message}
             </div>
           ) : null}
         </div>
-      ) : null}
+      ) : (
+        <EmptyState title="No upload submitted" text="Choose a video and submit it to create or reuse a VideoJob." />
+      )}
     </div>
   );
 }
@@ -637,78 +685,139 @@ function UploadPanel({
 function JobStatusPanel({
   activeVideoId,
   currentStatus,
-  terminal,
+  pollingActive,
   status,
   statusError,
   upload
 }: {
   activeVideoId: string | null;
   currentStatus: string;
-  terminal: boolean;
+  pollingActive: boolean;
   status: StatusResponse | null;
   statusError: string | null;
   upload: UploadResponse | null;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-panel p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">Job status</h3>
-          <p className="mt-1 text-sm text-slate-600">The browser polls the public status endpoint every 2 seconds after upload.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Async worker state</p>
+          <h2 className="mt-2 text-lg font-semibold text-slate-950">Job Status</h2>
+          <p className="mt-1 text-sm text-slate-500">Status polling follows the public job endpoint after upload.</p>
         </div>
-        <StatusPill status={currentStatus} />
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <StatusBadge status={currentStatus} size="lg" />
+          {pollingActive ? <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">Polling every 2 seconds</span> : null}
+        </div>
       </div>
       {activeVideoId ? (
-        <div className="mt-4 space-y-4">
+        <div className="mt-5 space-y-5">
           <StatusTimeline status={status?.status || upload?.status || null} hasUpload={Boolean(upload)} />
-          {!terminal ? <span className="text-sm text-slate-500">Polling every 2 seconds</span> : null}
           {statusError ? <Notice tone="error">{statusError}</Notice> : null}
-          <div className="grid gap-4 rounded-md bg-white p-4 sm:grid-cols-2">
-            <Field label="Video ID" value={activeVideoId} copyValue={activeVideoId} />
-            <Field label="Attempts" value={status ? `${status.attempt_count} / ${status.max_attempts}` : "not available"} />
-            <Field label="Processing duration" value={formatSeconds(status?.processing_duration_seconds)} />
-            <Field label="Retry exhausted" value={status?.retry_exhausted ? "true" : "false"} />
-            {status?.error_message ? <Field label="Error" value={status.error_message} /> : null}
+          <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
+            <DataTile label="Video ID" value={activeVideoId} copyValue={activeVideoId} mono />
+            <DataTile label="Attempts" value={status ? `${status.attempt_count} / ${status.max_attempts}` : "not available"} />
+            <DataTile label="Processing duration" value={formatSeconds(status?.processing_duration_seconds)} />
+            <DataTile label="Retry exhausted" value={status?.retry_exhausted ? "true" : "false"} />
           </div>
+          {status?.error_message ? <Notice tone="error">{status.error_message}</Notice> : null}
         </div>
       ) : (
-        <p className="mt-4 text-sm text-slate-600">Upload a video to start polling job status.</p>
+        <div className="mt-5">
+          <EmptyState title="Waiting for a job" text="Upload a video to start status polling and watch the worker pipeline advance." />
+        </div>
       )}
-    </div>
+    </section>
   );
 }
 
 function AssetsPanel({ assets, assetsError, status }: { assets: AssetsResponse | null; assetsError: string | null; status: StatusResponse | null }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-panel p-4">
-      <h3 className="text-sm font-semibold text-slate-900">Processed assets</h3>
-      <p className="mt-1 text-sm text-slate-600">Completed object-storage jobs expose short-lived presigned URLs.</p>
+    <section className="rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Object storage output</p>
+          <h2 className="mt-2 text-lg font-semibold text-slate-950">Processed Assets</h2>
+          <p className="mt-1 text-sm text-slate-500">Short-lived presigned URLs are generated after completion.</p>
+        </div>
+        <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Short-lived presigned URLs</span>
+      </div>
       {assetsError ? <div className="mt-4"><Notice tone="warning">{assetsError}</Notice></div> : null}
       {status?.status === "COMPLETED" ? (
         assets ? (
-          <div className="mt-4 space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Processed URL" value={assets.processed_url ? "available" : null} copyValue={assets.processed_url} />
-              <Field label="Thumbnail URL" value={assets.thumbnail_url ? "available" : null} copyValue={assets.thumbnail_url} />
-            </div>
-            {assets.thumbnail_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="max-h-64 rounded-md border border-slate-200 bg-white object-contain" src={assets.thumbnail_url} alt="Generated thumbnail" />
-            ) : (
-              <p className="text-sm text-slate-600">Thumbnail URL is unavailable.</p>
-            )}
-            {assets.processed_url ? (
-              <video className="w-full rounded-md border border-slate-200 bg-black" src={assets.processed_url} controls />
-            ) : (
-              <p className="text-sm text-slate-600">Processed video URL is unavailable.</p>
-            )}
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <AssetPreviewCard title="Thumbnail" url={assets.thumbnail_url} copyLabel="Thumbnail URL">
+              {assets.thumbnail_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className="h-full max-h-80 w-full rounded-xl border border-slate-200 bg-white object-contain" src={assets.thumbnail_url} alt="Generated thumbnail" />
+              ) : (
+                <EmptyAsset label="Thumbnail URL is unavailable" />
+              )}
+            </AssetPreviewCard>
+            <AssetPreviewCard title="Processed video" url={assets.processed_url} copyLabel="Processed URL">
+              {assets.processed_url ? (
+                <video className="w-full rounded-xl border border-slate-200 bg-black" src={assets.processed_url} controls />
+              ) : (
+                <EmptyAsset label="Processed video URL is unavailable" />
+              )}
+            </AssetPreviewCard>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-slate-600">Loading asset URLs...</p>
+          <div className="mt-5">
+            <EmptyState title="Loading asset URLs" text="The job is completed. Fetching presigned URLs from the assets endpoint." />
+          </div>
         )
       ) : (
-        <p className="mt-4 text-sm text-slate-600">Assets are available after the job reaches COMPLETED.</p>
+        <div className="mt-5">
+          <EmptyState title="Assets pending" text="Processed video and thumbnail previews appear here after the job reaches COMPLETED." />
+        </div>
       )}
+    </section>
+  );
+}
+
+function HealthSection({
+  queueHealth,
+  storageHealth,
+  healthLoading,
+  healthError,
+  onRefresh
+}: {
+  queueHealth: QueueHealth | null;
+  storageHealth: StorageHealth | null;
+  healthLoading: boolean;
+  healthError: string | null;
+  onRefresh: () => void;
+}) {
+  const storageConnected = storageHealth?.connected ?? storageHealth?.healthy ?? null;
+  const apiAvailable = queueHealth !== null || storageHealth !== null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-slate-500">Refresh these before a demo to prove API connectivity, Redis, worker visibility, and object storage.</p>
+        <button
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+          type="button"
+          onClick={() => void onRefresh()}
+          disabled={healthLoading}
+        >
+          {healthLoading ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
+      {healthError ? <Notice tone="error">{healthError}</Notice> : null}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <HealthMetric title="API" value={apiAvailable ? "reachable" : "not available"} detail={API_BASE_URL} state={apiAvailable ? "ok" : "unknown"} />
+        <HealthMetric title="Queue" value={queueHealth?.redis_connected ? "Redis connected" : "not available"} detail={queueHealth?.queue_name || "video-processing"} state={queueHealth?.redis_connected ? "ok" : "unknown"} />
+        <HealthMetric title="Storage" value={storageConnected === null ? "not available" : storageConnected ? "MinIO reachable" : "storage error"} detail={storageHealth?.storage_backend || "object"} state={storageConnected ? "ok" : storageConnected === false ? "bad" : "unknown"} />
+        <HealthMetric title="Worker Count" value={queueHealth?.worker_count ?? "not available"} detail={`pressure: ${queueHealth?.queue_pressure_level || "not available"}`} state={queueHealth && queueHealth.worker_count > 0 ? "ok" : "unknown"} />
+      </div>
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
+        <DataTile label="Queued jobs" value={queueHealth?.queued_jobs_count} />
+        <DataTile label="Storage endpoint" value={storageHealth?.public_endpoint || storageHealth?.endpoint} mono />
+        <DataTile label="Expected buckets" value={storageHealth?.expected_buckets?.join(", ") || Object.keys(storageHealth?.buckets || {}).join(", ")} />
+        <DataTile label="Errors" value={queueHealth?.redis_error || storageHealth?.error || "none reported"} />
+      </div>
     </div>
   );
 }
@@ -743,73 +852,79 @@ function AdminOperations({
   onRetryJob: (videoId: string) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <label className="block">
-        <span className="text-sm font-medium text-slate-700">Admin API key</span>
-        <input
-          className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none ring-sky-500 focus:ring-2"
-          value={adminKey}
-          onChange={(event) => onAdminKeyChange(event.target.value)}
-          type="password"
-          placeholder="dev-admin-key"
-        />
-        <span className="mt-2 block text-xs text-slate-500">Local Docker Compose dev key only. The key stays in component state and is not persisted.</span>
-      </label>
-      <div className="flex flex-wrap gap-2">
-        <AdminButton loading={adminLoading === "failed"} onClick={onLoadFailedJobs}>Load failed jobs</AdminButton>
-        <AdminButton loading={adminLoading === "stuck"} onClick={onLoadStuckJobs}>Load stuck jobs</AdminButton>
-        <AdminButton loading={adminLoading === "recover"} onClick={onRecoverStuckJobs}>Recover stuck jobs</AdminButton>
+    <div className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <label className="block">
+          <span className="text-sm font-medium text-slate-800">Admin API key</span>
+          <input
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-blue-500 transition focus:border-blue-300 focus:ring-2"
+            value={adminKey}
+            onChange={(event) => onAdminKeyChange(event.target.value)}
+            type="password"
+            placeholder="dev-admin-key"
+          />
+          <span className="mt-2 block text-xs text-slate-500">Demo key stays in component state and is never persisted by the browser.</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <AdminButton loading={adminLoading === "failed"} onClick={onLoadFailedJobs}>Load failed</AdminButton>
+          <AdminButton loading={adminLoading === "stuck"} onClick={onLoadStuckJobs}>Load stuck</AdminButton>
+          <AdminButton loading={adminLoading === "recover"} onClick={onRecoverStuckJobs}>Recover stuck</AdminButton>
+        </div>
       </div>
+
       {adminError ? <Notice tone="error">{adminError}</Notice> : null}
       {adminMessage ? <Notice tone="success">{adminMessage}</Notice> : null}
+
       {recovery ? (
-        <div className="grid gap-3 rounded-md bg-slate-50 p-3 text-sm text-slate-700 sm:grid-cols-4">
-          <Field label="Inspected" value={recovery.inspected_count} />
-          <Field label="Recovered" value={recovery.recovered_count} />
-          <Field label="Failed" value={recovery.failed_count} />
-          <Field label="Skipped" value={recovery.skipped_count} />
+        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-4">
+          <DataTile label="Inspected" value={recovery.inspected_count} />
+          <DataTile label="Recovered" value={recovery.recovered_count} />
+          <DataTile label="Failed" value={recovery.failed_count} />
+          <DataTile label="Skipped" value={recovery.skipped_count} />
         </div>
       ) : null}
 
-      <AdminList title="Failed jobs">
-        {failedJobs.length ? failedJobs.map((job) => (
-          <div key={job.id} className="rounded-md border border-slate-200 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="break-all font-mono text-xs text-slate-600">{job.id}</div>
-                <div className="mt-1 text-sm font-medium text-slate-900">{job.original_filename}</div>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <StatusPill status={job.status} />
-                  <span>{job.last_error_type || "unknown error"}</span>
-                  <span>retry exhausted: {String(job.retry_exhausted)}</span>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <AdminList title="Failed jobs" count={failedJobs.length}>
+          {failedJobs.length ? failedJobs.map((job) => (
+            <div key={job.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="break-all font-mono text-xs text-slate-500">{job.id}</div>
+                  <div className="mt-2 text-sm font-semibold text-slate-950">{job.original_filename}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <StatusBadge status={job.status} />
+                    <span>{job.last_error_type || "unknown error"}</span>
+                    <span>retry exhausted: {String(job.retry_exhausted)}</span>
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500">{job.failed_at || "failed time unavailable"}</div>
                 </div>
-                <div className="mt-1 text-xs text-slate-500">{job.failed_at || "failed time unavailable"}</div>
+                <button
+                  className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                  onClick={() => onRetryJob(job.id)}
+                  disabled={retryingJobId === job.id}
+                  type="button"
+                >
+                  {retryingJobId === job.id ? "Retrying" : "Retry"}
+                </button>
               </div>
-              <button
-                className="shrink-0 rounded-md border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 disabled:cursor-wait disabled:opacity-60"
-                onClick={() => onRetryJob(job.id)}
-                disabled={retryingJobId === job.id}
-                type="button"
-              >
-                {retryingJobId === job.id ? "Retrying" : "Retry"}
-              </button>
             </div>
-          </div>
-        )) : <EmptyState text="No failed jobs loaded. Use the button above to query the admin endpoint." />}
-      </AdminList>
+          )) : <EmptyState title="No failed jobs loaded" text="Load failed jobs to inspect retry-exhausted or failed processing records." />}
+        </AdminList>
 
-      <AdminList title="Stuck jobs">
-        {stuckJobs.length ? stuckJobs.map((job) => (
-          <div key={job.id} className="rounded-md border border-slate-200 p-3">
-            <div className="break-all font-mono text-xs text-slate-600">{job.id}</div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <StatusPill status={job.status} />
-              <span className="text-xs text-slate-500">{job.stuck_reason}</span>
+        <AdminList title="Stuck jobs" count={stuckJobs.length}>
+          {stuckJobs.length ? stuckJobs.map((job) => (
+            <div key={job.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="break-all font-mono text-xs text-slate-500">{job.id}</div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <StatusBadge status={job.status} />
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">{job.stuck_reason}</span>
+              </div>
+              <div className="mt-3 text-xs text-slate-500">age: {job.age_seconds.toFixed(0)}s</div>
             </div>
-            <div className="mt-2 text-xs text-slate-500">age: {job.age_seconds.toFixed(0)}s</div>
-          </div>
-        )) : <EmptyState text="No stuck jobs loaded. Use the button above to inspect reconciler candidates." />}
-      </AdminList>
+          )) : <EmptyState title="No stuck jobs loaded" text="Load stuck jobs to inspect reconciler recovery candidates." />}
+        </AdminList>
+      </div>
     </div>
   );
 }
@@ -824,32 +939,91 @@ function StatusTimeline({ status, hasUpload }: { status: string | null; hasUploa
   ];
 
   return (
-    <ol className="grid gap-2 sm:grid-cols-4">
-      {steps.map((step) => (
-        <li key={step.label} className={`rounded-md border p-3 ${timelineClass(step.state, step.label)}`}>
-          <div className="text-xs font-semibold uppercase tracking-wide">{step.state === "current" ? "Current" : step.state === "done" ? "Done" : "Pending"}</div>
-          <div className="mt-1 text-sm font-medium">{step.label}</div>
+    <ol className="grid gap-3 sm:grid-cols-4">
+      {steps.map((step, index) => (
+        <li key={step.label} className={`relative rounded-2xl border p-4 ${timelineClass(step.state, step.label)}`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="grid h-7 w-7 place-items-center rounded-full border border-current/20 bg-white/70 text-xs font-bold">{index + 1}</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{step.state === "current" ? "Current" : step.state === "done" ? "Done" : "Pending"}</span>
+          </div>
+          <div className="mt-3 text-sm font-semibold">{step.label}</div>
         </li>
       ))}
     </ol>
   );
 }
 
-function timelineClass(state: string, label: string) {
-  if (state === "current" && label === "Failed") return "border-rose-200 bg-rose-50 text-rose-800";
-  if (state === "current") return "border-sky-200 bg-sky-50 text-sky-800";
-  if (state === "done") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  return "border-slate-200 bg-white text-slate-500";
+function Panel({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: ReactNode }) {
+  return (
+    <section className="rounded-[1.25rem] border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
+        <h2 className="mt-2 text-lg font-semibold text-slate-950">{title}</h2>
+        <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
 }
 
-function StatusPill({ status }: { status: string }) {
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusClass(status)}`}>{status}</span>;
+function StatusBadge({ status, size = "sm" }: { status: string; size?: "sm" | "lg" }) {
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full border font-semibold ${statusClass(status)} ${size === "lg" ? "px-3 py-1.5 text-sm" : "px-2.5 py-1 text-xs"}`}>
+      <span className={`h-2 w-2 rounded-full ${statusDotClass(status)}`} />
+      {status}
+    </span>
+  );
+}
+
+function DataTile({ label, value, copyValue, mono = false }: { label: string; value: ReactNode; copyValue?: string | null; mono?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+        {copyValue ? <CopyButton value={copyValue} compact /> : null}
+      </div>
+      <div className={`mt-2 break-words text-sm text-slate-950 ${mono ? "font-mono text-xs" : "font-medium"}`}>{valueOrFallback(value)}</div>
+    </div>
+  );
+}
+
+function HealthMetric({ title, value, detail, state }: { title: string; value: ReactNode; detail: ReactNode; state: "ok" | "bad" | "unknown" }) {
+  const dot = state === "ok" ? "bg-emerald-500" : state === "bad" ? "bg-rose-500" : "bg-slate-300";
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+        <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
+      </div>
+      <div className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">{valueOrFallback(value)}</div>
+      <div className="mt-1 break-words text-xs text-slate-500">{valueOrFallback(detail)}</div>
+    </div>
+  );
+}
+
+function AssetPreviewCard({ title, url, copyLabel, children }: { title: string; url: string | null; copyLabel: string; children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+          <p className="mt-1 text-xs text-slate-500">{url ? "URL available" : "Waiting for URL"}</p>
+        </div>
+        {url ? <CopyButton value={url}>{copyLabel}</CopyButton> : null}
+      </div>
+      <div className="grid min-h-52 place-items-center">{children}</div>
+    </div>
+  );
+}
+
+function EmptyAsset({ label }: { label: string }) {
+  return <div className="grid h-52 w-full place-items-center rounded-xl border border-dashed border-slate-300 bg-white text-sm text-slate-500">{label}</div>;
 }
 
 function AdminButton({ children, loading, onClick }: { children: ReactNode; loading: boolean; onClick: () => void }) {
   return (
     <button
-      className="rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:cursor-wait disabled:bg-slate-400"
+      className="rounded-xl bg-slate-950 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-wait disabled:bg-slate-400"
       onClick={onClick}
       disabled={loading}
       type="button"
@@ -859,70 +1033,91 @@ function AdminButton({ children, loading, onClick }: { children: ReactNode; load
   );
 }
 
-function AdminList({ title, children }: { title: string; children: ReactNode }) {
+function AdminList({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
-    <div>
-      <h3 className="mb-2 text-sm font-semibold text-slate-800">{title}</h3>
-      <div className="space-y-2">{children}</div>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-slate-950">{title}</h3>
+        <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">{count}</span>
+      </div>
+      <div className="space-y-3">{children}</div>
     </div>
   );
 }
 
-function EmptyState({ text }: { text: string }) {
-  return <p className="rounded-md border border-dashed border-slate-300 bg-white p-3 text-sm text-slate-500">{text}</p>;
+function EmptyState({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
+      <div className="text-sm font-semibold text-slate-800">{title}</div>
+      <p className="mt-1 text-sm leading-6 text-slate-500">{text}</p>
+    </div>
+  );
 }
 
 function SystemLink({ label, href }: { label: string; href: string }) {
   return (
-    <a className="rounded-md border border-slate-200 bg-panel p-3 text-sm font-medium text-slate-800 hover:border-slate-400" href={href} target="_blank" rel="noreferrer">
+    <a className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white" href={href} target="_blank" rel="noreferrer">
       {label}
-      <div className="mt-1 break-all font-mono text-xs font-normal text-slate-500">{href}</div>
+      <div className="mt-2 break-all font-mono text-xs font-normal text-slate-500">{href}</div>
     </a>
   );
 }
 
-function InfoBadge({ label, value }: { label: string; value: string }) {
+function RuntimeChip({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="rounded-md bg-panel px-3 py-2">
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 break-all font-mono text-xs text-slate-900">{value}</div>
+    <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-600 shadow-sm">
+      <span className="font-semibold text-slate-900">{label}</span>
+      <span className="ml-2 font-mono">{valueOrFallback(value)}</span>
+    </div>
+  );
+}
+
+function DarkMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="mt-2 text-lg font-semibold text-white">{valueOrFallback(value)}</div>
     </div>
   );
 }
 
 function Notice({ children, tone }: { children: ReactNode; tone: "error" | "warning" | "success" }) {
   const classes = {
-    error: "bg-rose-50 text-rose-700",
-    warning: "bg-amber-50 text-amber-800",
-    success: "bg-emerald-50 text-emerald-800"
+    error: "border-rose-200 bg-rose-50 text-rose-700",
+    warning: "border-amber-200 bg-amber-50 text-amber-800",
+    success: "border-emerald-200 bg-emerald-50 text-emerald-800"
   };
-  return <div className={`rounded-md p-3 text-sm ${classes[tone]}`}>{children}</div>;
-}
-
-function HealthCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="space-y-3 rounded-lg border border-slate-200 bg-panel p-4">
-      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-      <div className="grid gap-3">{children}</div>
-    </div>
-  );
+  return <div className={`rounded-xl border p-3 text-sm ${classes[tone]}`}>{children}</div>;
 }
 
 function DemoScenarios() {
   return (
-    <div className="rounded-lg border border-slate-200 bg-panel p-4">
-      <h3 className="text-sm font-semibold text-slate-900">Demo scenarios</h3>
-      <ol className="mt-3 space-y-3 text-sm text-slate-700">
-        <li><span className="font-medium text-slate-950">Normal flow:</span> upload a valid MP4, watch status reach COMPLETED, then preview assets.</li>
-        <li><span className="font-medium text-slate-950">Failure flow:</span> upload a fake bad.mp4 from the terminal, load failed jobs, then retry.</li>
-        <li><span className="font-medium text-slate-950">Protection flow:</span> run the overload benchmark and observe rate limiting or admission rejection.</li>
-        <li><span className="font-medium text-slate-950">Observability:</span> open Grafana or Jaeger after an upload to inspect metrics and traces.</li>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <h3 className="text-sm font-semibold text-slate-950">Demo scenarios</h3>
+      <ol className="mt-3 space-y-3 text-sm leading-6 text-slate-700">
+        <li><span className="font-semibold text-slate-950">Normal flow:</span> upload a valid MP4, watch status reach COMPLETED, then preview assets.</li>
+        <li><span className="font-semibold text-slate-950">Failure flow:</span> upload a fake bad.mp4 from the terminal, load failed jobs, then retry.</li>
+        <li><span className="font-semibold text-slate-950">Protection flow:</span> run the overload benchmark and observe rate limiting or admission rejection.</li>
+        <li><span className="font-semibold text-slate-950">Observability:</span> open Grafana or Jaeger after an upload to inspect metrics and traces.</li>
       </ol>
     </div>
   );
 }
 
-function CopyButton({ value, compact = false }: { value: string; compact?: boolean }) {
+function pipelineClass(state: string) {
+  if (state === "current") return "border-blue-200 bg-blue-50 text-blue-800 shadow-sm";
+  if (state === "done") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  return "border-slate-200 bg-slate-50 text-slate-500";
+}
+
+function timelineClass(state: string, label: string) {
+  if (state === "current" && label === "Failed") return "border-rose-200 bg-rose-50 text-rose-800";
+  if (state === "current") return "border-blue-200 bg-blue-50 text-blue-800 shadow-sm";
+  if (state === "done") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  return "border-slate-200 bg-white text-slate-500";
+}
+
+function CopyButton({ value, compact = false, children }: { value: string; compact?: boolean; children?: ReactNode }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -937,11 +1132,11 @@ function CopyButton({ value, compact = false }: { value: string; compact?: boole
 
   return (
     <button
-      className={`rounded-md border border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50 ${compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-xs"}`}
+      className={`rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${compact ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-1.5 text-xs"}`}
       type="button"
       onClick={copy}
     >
-      {copied ? "Copied" : "Copy"}
+      {copied ? "Copied" : children || "Copy"}
     </button>
   );
 }
